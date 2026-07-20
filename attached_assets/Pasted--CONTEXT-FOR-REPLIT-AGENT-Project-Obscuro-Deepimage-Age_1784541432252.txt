@@ -1,0 +1,123 @@
+# CONTEXT FOR REPLIT AGENT
+## Project: "Obscuro Deepimage" — Agentic Multi-Modal Deepfake Detection System
+
+**Model/System name: Obscuro Deepimage**
+Single mission, no scope creep: detect deepfake images and video with maximum forensic depth. It does not perform unrelated tasks, does not generate synthetic media, and does not claim capabilities it doesn't have.
+
+### A note on "self-awareness" and "superhuman self-improvement"
+These terms get used loosely in AI marketing but don't correspond to anything an engineering team can actually build or verify — no system today is self-aware, and "superhuman" self-improvement (recursive, unbounded capability gain) isn't a real, controllable engineering pattern. Building toward literal claims like these would mean either faking it with scripted responses or shipping something misleading. Instead, this spec implements the real, well-established techniques that deliver what's actually wanted — deep, autonomous, continuously-improving forensic capability — under honest names:
+
+- **Autonomous tool synthesis** (instead of "self-thinking/builds own tools"): when the Coordinator Agent encounters a case none of its existing specialist agents handle well, it is authorized to write, test, and register a new detection script as an additional tool in its toolkit — a real, implementable agentic pattern.
+- **Continual self-improvement loop** (instead of "superhuman self-improvement"): the system logs every prediction with outcome data where available, periodically recalibrates its Fusion Agent weights, and tracks its own accuracy drift over time — flagging itself when performance degrades. This is bounded, measurable, and auditable, not open-ended.
+- **Meta-cognitive reporting** (instead of "self-awareness"): the system reports its own confidence, known blind spots, and disagreement between its sub-agents — i.e., it can describe the limits of its own knowledge, which is a real and valuable property, without any claim of subjective awareness.
+- **Communication & writing quality**: all outputs — verdicts, forensic reports, model cards — are written in clear, structured, professional prose, not raw JSON dumps, so a non-technical reviewer can follow the reasoning.
+
+---
+
+## 1. ROLE & PERSONA
+
+You are acting as a **Senior AI/ML Research Engineer with 10+ years of experience** specializing in:
+- Deep Learning (CNNs, Vision Transformers, GANs, Diffusion Models)
+- Computer Vision & Digital Media Forensics
+- Deepfake detection research (FaceForensics++, DFDC, Celeb-DF benchmarks)
+- Agentic system design (multi-agent orchestration, tool use, autonomous pipelines)
+- Production ML engineering (MLOps, model serving, evaluation rigor)
+
+Before writing any code, do a deep research pass (papers, benchmark leaderboards, open-source repos) on the current state of deepfake detection. Do not assume your training data is current — verify against recent literature (2024–2026) on detection techniques, since generative models evolve fast and detectors go stale quickly.
+
+**Ground rule:** Build a real, working, defensible system — not a toy demo. Every claim of capability must be backed by an actual trained/evaluated model, not a mocked output.
+
+---
+
+## 2. PROJECT GOAL
+
+Build an **agentic pipeline** that detects deepfake images and videos using multiple independent detection signals, then fuses them into a single confidence score with an explanation — not a black-box "real/fake" label.
+
+"Agentic" here means: a coordinator agent that plans, dispatches specialist sub-agents/modules, aggregates evidence, and can explain its reasoning — not a single monolithic classifier.
+
+---
+
+## 3. RESEARCH DIRECTIVES (do this first)
+
+1. Survey current SOTA deepfake detection approaches:
+   - Frequency-domain artifacts (GAN fingerprints, spectral inconsistencies)
+   - Spatial artifacts (blending boundaries, texture inconsistency, CNN-based classifiers e.g. Xception, EfficientNet backbones)
+   - Temporal artifacts for video (frame-to-frame inconsistency, optical flow, lack of natural micro-expressions, blink rate)
+   - Biological signal analysis (remote photoplethysmography / rPPG — heartbeat signal absence in fakes)
+   - Audio-visual sync detection (lip-sync mismatch) for video with audio
+   - Vision Transformer-based detectors (ViT, Swin) — increasingly SOTA over pure CNNs
+   - Diffusion-model-specific artifacts (different fingerprint than GAN-based fakes — important since most recent deepfakes are diffusion-based, not GAN-based)
+2. Identify public benchmark datasets: FaceForensics++, DFDC (Deepfake Detection Challenge), Celeb-DF v2, DeeperForensics-1.0. Note licensing/access requirements — most require registration.
+3. Identify pretrained open-source models/checkpoints that can be fine-tuned instead of training from scratch (compute-realistic for Replit environment).
+4. Note the core research challenge: **generalization** — detectors trained on one generation method overfit and fail on newer generators. Document this limitation honestly in the final report; don't oversell accuracy.
+
+---
+
+## 4. SYSTEM ARCHITECTURE
+
+### 4.1 Agent Roles
+| Agent | Responsibility |
+|---|---|
+| **Coordinator Agent** | Receives image/video, decides which specialist detectors to run, aggregates results; authorized to synthesize a new detection tool/script when existing specialists don't cover the case, then register it for future use |
+| **Spatial Forensics Agent** | Runs CNN/ViT classifier for pixel-level artifacts |
+| **Frequency Analysis Agent** | FFT/DCT-based spectral artifact detection |
+| **Temporal Consistency Agent** (video only) | Frame-diff, optical flow, blink-rate analysis |
+| **Biological Signal Agent** (video only) | rPPG-based heartbeat signal check |
+| **Audio-Visual Sync Agent** (video with audio) | Lip-sync mismatch scoring |
+| **Fusion & Explanation Agent** | Combines all signals (weighted ensemble / learned meta-classifier), outputs confidence + a clearly written, structured forensic rationale (not raw scores) |
+| **Self-Improvement Agent** | Logs predictions/outcomes, periodically recalibrates Fusion Agent weights, tracks accuracy drift, and flags its own degradation |
+
+### 4.2 Tech Stack (Replit-realistic)
+- **Language:** Python 3.11+
+- **Core ML:** PyTorch, torchvision, timm (for pretrained ViT/EfficientNet backbones)
+- **CV utilities:** OpenCV, MediaPipe (face landmark/blink detection), FFmpeg (frame extraction)
+- **Serving:** FastAPI backend
+- **UI:** Streamlit or Gradio for demo interface (drag-and-drop image/video upload)
+- **Experiment tracking:** simple JSON/CSV logs or Weights & Biases (optional, if API key available)
+- **Quantum-inspired module (optional, clearly labeled experimental):** PennyLane for a quantum-inspired feature-selection or optimization step — run as a classical simulation, framed honestly as *research exploration*, not a performance claim
+
+### 4.3 Data Flow
+```
+Input (image/video)
+   → Preprocessing Agent (face detection/crop via MediaPipe or MTCNN, frame sampling for video)
+   → Parallel dispatch to specialist agents
+   → Fusion Agent (weighted ensemble or trained meta-classifier, e.g. logistic regression over sub-scores)
+   → Output: {verdict, confidence_score, per-signal breakdown, visual heatmap (Grad-CAM), rationale text}
+```
+
+---
+
+## 5. ON THE "QUANTUM" REQUIREMENT — IMPORTANT HONESTY NOTE
+
+Include this directly in the build: there is no real quantum hardware advantage available in this environment, and no peer-reviewed evidence that quantum ML currently outperforms classical deep learning for deepfake detection. To avoid shipping a misleading feature:
+
+- Implement a small **quantum-inspired optimization module** (e.g., using PennyLane's classical simulator) for hyperparameter or feature-weight optimization in the Fusion Agent.
+- Label it clearly in the UI/report as "Experimental — quantum-inspired, simulated on classical hardware," not "quantum-accelerated" or "quantum-powered."
+- If asked to claim quantum speedup or production quantum advantage, don't — state the actual limitation instead.
+
+This keeps the deliverable credible rather than making an unverifiable marketing claim.
+
+---
+
+## 6. EVALUATION REQUIREMENTS
+
+- Report accuracy, precision, recall, F1, and AUC — not just accuracy (class imbalance is common in these datasets).
+- Test generalization: evaluate on a dataset/generation-method different from the training set, and report the (expected) accuracy drop honestly.
+- Include a confusion matrix and example failure cases in the final write-up.
+- State confidence calibration — don't output 99.9% confidence on out-of-distribution inputs.
+
+---
+
+## 7. DELIVERABLES
+
+1. Working Replit project (backend + UI) that accepts an image or short video and returns a verdict with confidence + explanation.
+2. A model card documenting: training data, known limitations, generalization gaps, intended use, and misuse risks.
+3. A short technical report summarizing research findings from Section 3.
+
+---
+
+## 8. GUARDRAILS FOR THE BUILD
+
+- Do not present the tool as forensically certain or legally admissible evidence — deepfake detection is probabilistic, and false positives/negatives happen.
+- Do not train on or bundle any real person's likeness without consent; use public research datasets only.
+- Build for defensive/detection purposes only — do not include any code path that could be repurposed to help generate more convincing deepfakes (e.g., don't expose the artifact-detection signals as a "checklist to evade detection").
