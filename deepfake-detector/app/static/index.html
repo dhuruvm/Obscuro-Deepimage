@@ -3,1127 +3,508 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Obscuro Deepimage — Forensic Specialist</title>
-<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<title>Obscuro Deepimage</title>
 <style>
-:root {
-  --bg: #0a0c10;
-  --surface: #111318;
-  --card: #161b22;
-  --border: #21262d;
-  --accent: #58a6ff;
-  --accent2: #3fb950;
-  --red: #f85149;
-  --yellow: #e3b341;
-  --purple: #a371f7;
-  --text: #e6edf3;
-  --muted: #8b949e;
-  --muted2: #484f58;
-  --font: 'SF Mono', 'Cascadia Code', 'Fira Code', monospace;
-  --sans: system-ui, -apple-system, sans-serif;
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box;}
+html,body{height:100%;}
+body{
+  background:#0d0d0d;
+  color:#fff;
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;
+  min-height:100vh;
+  overflow-x:hidden;
 }
-* { box-sizing: border-box; margin: 0; padding: 0; }
-body { background: var(--bg); color: var(--text); font-family: var(--sans); font-size: 14px; min-height: 100vh; }
-a { color: var(--accent); text-decoration: none; }
 
-/* Layout */
-.layout { display: flex; min-height: 100vh; }
-.sidebar { width: 260px; min-width: 220px; background: var(--surface); border-right: 1px solid var(--border); display: flex; flex-direction: column; position: fixed; height: 100vh; overflow-y: auto; z-index: 10; }
-.main { margin-left: 260px; flex: 1; display: flex; flex-direction: column; min-height: 100vh; }
-
-/* Sidebar */
-.sidebar-logo { padding: 20px 18px 14px; border-bottom: 1px solid var(--border); }
-.sidebar-logo h1 { font-size: 16px; font-weight: 700; letter-spacing: -0.3px; color: var(--text); }
-.sidebar-logo p { font-size: 11px; color: var(--muted); margin-top: 2px; }
-.sidebar-logo .version { display: inline-block; background: var(--card); border: 1px solid var(--border); border-radius: 4px; padding: 1px 6px; font-size: 10px; color: var(--muted); font-family: var(--font); margin-top: 6px; }
-
-.sidebar-section { padding: 14px 14px 8px; }
-.sidebar-section-title { font-size: 10px; font-weight: 600; color: var(--muted2); text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 8px; }
-
-.nav-item { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 6px; cursor: pointer; color: var(--muted); transition: all 0.15s; font-size: 13px; }
-.nav-item:hover { background: var(--card); color: var(--text); }
-.nav-item.active { background: rgba(88,166,255,0.12); color: var(--accent); }
-.nav-item .icon { font-size: 15px; width: 18px; text-align: center; }
-
-.status-dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; margin-right: 6px; }
-.dot-green { background: var(--accent2); box-shadow: 0 0 6px var(--accent2); }
-.dot-red { background: var(--red); }
-.dot-yellow { background: var(--yellow); animation: pulse 1.5s infinite; }
-.dot-gray { background: var(--muted2); }
-@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
-
-.status-item { display: flex; align-items: center; font-size: 12px; color: var(--muted); padding: 4px 0; }
-.status-item strong { color: var(--text); }
-
-.sidebar-footer { margin-top: auto; padding: 14px; border-top: 1px solid var(--border); font-size: 11px; color: var(--muted2); }
-
-/* Top bar */
-.topbar { background: var(--surface); border-bottom: 1px solid var(--border); padding: 14px 28px; display: flex; align-items: center; justify-content: space-between; }
-.topbar-title { font-size: 15px; font-weight: 600; }
-.topbar-sub { font-size: 12px; color: var(--muted); }
-.topbar-right { display: flex; align-items: center; gap: 10px; }
-
-/* Tab content */
-.content { padding: 28px; flex: 1; }
-.tab-panel { display: none; }
-.tab-panel.active { display: block; }
-
-/* Cards */
-.card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 20px; margin-bottom: 18px; }
-.card-title { font-size: 13px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
-.card-title .icon { font-size: 16px; }
-
-/* Grid */
-.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
-.grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
-.grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
-
-/* Upload zone */
-.upload-zone { border: 2px dashed var(--border); border-radius: 12px; padding: 50px 30px; text-align: center; cursor: pointer; transition: all 0.2s; }
-.upload-zone:hover, .upload-zone.drag-over { border-color: var(--accent); background: rgba(88,166,255,0.04); }
-.upload-zone .icon { font-size: 40px; margin-bottom: 14px; }
-.upload-zone h3 { font-size: 16px; color: var(--text); margin-bottom: 6px; }
-.upload-zone p { color: var(--muted); font-size: 13px; }
-.upload-zone .formats { margin-top: 10px; display: flex; gap: 6px; justify-content: center; flex-wrap: wrap; }
-.format-badge { background: var(--surface); border: 1px solid var(--border); border-radius: 4px; padding: 2px 8px; font-size: 11px; color: var(--muted); font-family: var(--font); }
-
-/* Buttons */
-.btn { display: inline-flex; align-items: center; gap: 7px; padding: 9px 18px; border-radius: 7px; font-size: 13px; font-weight: 600; cursor: pointer; border: none; transition: all 0.15s; }
-.btn-primary { background: var(--accent); color: #000; }
-.btn-primary:hover { background: #79c0ff; }
-.btn-primary:disabled { opacity: 0.4; cursor: not-allowed; }
-.btn-success { background: var(--accent2); color: #000; }
-.btn-success:hover { background: #56d364; }
-.btn-danger { background: var(--red); color: #fff; }
-.btn-danger:hover { opacity: 0.85; }
-.btn-ghost { background: transparent; border: 1px solid var(--border); color: var(--text); }
-.btn-ghost:hover { background: var(--card); }
-.btn-sm { padding: 6px 12px; font-size: 12px; }
-.btn-purple { background: var(--purple); color: #000; }
-.btn-purple:hover { opacity: 0.85; }
-
-/* Verdict badges */
-.verdict-badge { padding: 18px 24px; border-radius: 10px; text-align: center; margin-bottom: 20px; }
-.verdict-fake { background: rgba(248,81,73,0.12); border: 2px solid var(--red); }
-.verdict-real { background: rgba(63,185,80,0.12); border: 2px solid var(--accent2); }
-.verdict-uncertain { background: rgba(227,179,65,0.12); border: 2px solid var(--yellow); }
-.verdict-label { font-size: 26px; font-weight: 800; margin-bottom: 8px; letter-spacing: -0.5px; }
-.verdict-fake .verdict-label { color: var(--red); }
-.verdict-real .verdict-label { color: var(--accent2); }
-.verdict-uncertain .verdict-label { color: var(--yellow); }
-.verdict-meta { display: flex; gap: 20px; justify-content: center; flex-wrap: wrap; margin-top: 10px; }
-.verdict-meta-item { text-align: center; }
-.verdict-meta-item .val { font-size: 22px; font-weight: 700; font-family: var(--font); }
-.verdict-meta-item .lbl { font-size: 11px; color: var(--muted); margin-top: 2px; }
-
-/* Progress bars */
-.progress-bar-wrap { background: var(--border); border-radius: 4px; height: 6px; margin: 6px 0; overflow: hidden; }
-.progress-bar { height: 100%; border-radius: 4px; transition: width 0.5s ease; }
-.bar-red { background: var(--red); }
-.bar-green { background: var(--accent2); }
-.bar-yellow { background: var(--yellow); }
-.bar-blue { background: var(--accent); }
-.bar-purple { background: var(--purple); }
-
-/* Agent cards */
-.agent-card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 14px; margin-bottom: 10px; }
-.agent-card-header { display: flex; align-items: center; justify-content: space-between; cursor: pointer; }
-.agent-name { font-size: 13px; font-weight: 600; }
-.agent-score { font-family: var(--font); font-size: 13px; }
-.agent-score.fake { color: var(--red); }
-.agent-score.real { color: var(--accent2); }
-.agent-score.neutral { color: var(--yellow); }
-.agent-badge { font-size: 10px; border-radius: 4px; padding: 2px 7px; font-weight: 600; }
-.badge-fake { background: rgba(248,81,73,0.2); color: var(--red); }
-.badge-real { background: rgba(63,185,80,0.2); color: var(--accent2); }
-.badge-neutral { background: rgba(227,179,65,0.2); color: var(--yellow); }
-.badge-skipped { background: var(--card); color: var(--muted2); }
-.agent-details { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border); font-size: 12px; color: var(--muted); display: none; }
-.agent-details.open { display: block; }
-.detail-row { display: flex; justify-content: space-between; padding: 3px 0; }
-.detail-key { color: var(--muted2); }
-.detail-val { color: var(--text); font-family: var(--font); }
-
-/* Metrics */
-.metric-card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 16px; }
-.metric-val { font-size: 28px; font-weight: 700; font-family: var(--font); }
-.metric-lbl { font-size: 11px; color: var(--muted); margin-top: 4px; text-transform: uppercase; letter-spacing: 0.5px; }
-
-/* Report */
-.report-viewer { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 28px; font-size: 13.5px; line-height: 1.75; max-height: 70vh; overflow-y: auto; }
-.report-viewer h1 { font-size: 20px; margin-bottom: 16px; color: var(--accent); }
-.report-viewer h2 { font-size: 16px; margin: 24px 0 10px; color: var(--text); border-bottom: 1px solid var(--border); padding-bottom: 6px; }
-.report-viewer h3 { font-size: 14px; margin: 18px 0 8px; color: var(--accent); }
-.report-viewer p { margin-bottom: 12px; color: var(--muted); }
-.report-viewer strong { color: var(--text); }
-.report-viewer code { font-family: var(--font); background: var(--card); padding: 2px 6px; border-radius: 3px; font-size: 12px; color: var(--accent); }
-.report-viewer blockquote { border-left: 3px solid var(--yellow); padding-left: 14px; margin: 12px 0; color: var(--muted); }
-.report-viewer table { border-collapse: collapse; width: 100%; margin: 14px 0; font-size: 12px; }
-.report-viewer th { background: var(--card); color: var(--text); padding: 8px 12px; text-align: left; border: 1px solid var(--border); font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; }
-.report-viewer td { padding: 7px 12px; border: 1px solid var(--border); color: var(--muted); }
-.report-viewer ul, .report-viewer ol { padding-left: 20px; margin-bottom: 12px; color: var(--muted); }
-.report-viewer li { margin-bottom: 4px; }
-.report-viewer hr { border: none; border-top: 1px solid var(--border); margin: 20px 0; }
-
-/* Training chart */
-.chart-wrap { height: 140px; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 12px; position: relative; overflow: hidden; }
-canvas { width: 100%; height: 100%; }
-
-/* Log */
-.log-box { background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 14px; font-family: var(--font); font-size: 11.5px; max-height: 240px; overflow-y: auto; color: var(--muted); }
-.log-box .log-entry { padding: 2px 0; border-bottom: 1px solid rgba(255,255,255,0.03); }
-.log-box .log-time { color: var(--muted2); }
-.log-box .log-msg { color: var(--text); }
-
-/* Spinner */
-.spinner { display: inline-block; width: 16px; height: 16px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.7s linear infinite; }
-@keyframes spin { to { transform: rotate(360deg); } }
-
-/* Tags */
-.tag { display: inline-block; font-size: 10px; font-weight: 600; padding: 2px 8px; border-radius: 4px; font-family: var(--font); }
-.tag-quantum { background: rgba(163,113,247,0.2); color: var(--purple); border: 1px solid rgba(163,113,247,0.3); }
-.tag-experimental { background: rgba(227,179,65,0.15); color: var(--yellow); border: 1px solid rgba(227,179,65,0.25); }
-.tag-ai { background: rgba(88,166,255,0.15); color: var(--accent); border: 1px solid rgba(88,166,255,0.25); }
-
-/* Form elements */
-input[type=range] { width: 100%; accent-color: var(--accent); }
-input[type=number], select { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; color: var(--text); padding: 8px 12px; font-size: 13px; width: 100%; outline: none; }
-input[type=number]:focus, select:focus { border-color: var(--accent); }
-label { font-size: 12px; color: var(--muted); display: block; margin-bottom: 5px; }
-
-/* Algo config */
-.weight-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
-.weight-name { font-size: 12px; color: var(--muted); width: 200px; flex-shrink: 0; }
-.weight-bar-wrap { flex: 1; background: var(--border); border-radius: 4px; height: 8px; overflow: hidden; }
-.weight-bar { height: 100%; background: var(--accent); border-radius: 4px; }
-.weight-val { font-family: var(--font); font-size: 12px; color: var(--text); width: 42px; text-align: right; flex-shrink: 0; }
-
-/* Toast */
-.toast { position: fixed; bottom: 24px; right: 24px; background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 12px 18px; font-size: 13px; z-index: 9999; animation: slideup 0.3s; max-width: 320px; }
-.toast.success { border-left: 3px solid var(--accent2); }
-.toast.error { border-left: 3px solid var(--red); }
-.toast.info { border-left: 3px solid var(--accent); }
-@keyframes slideup { from { opacity:0; transform: translateY(20px); } to { opacity:1; transform:translateY(0); } }
-
-/* Media preview */
-.media-preview { border-radius: 8px; overflow: hidden; background: var(--surface); border: 1px solid var(--border); text-align: center; }
-.media-preview img { max-width: 100%; max-height: 300px; object-fit: contain; }
-.media-preview video { max-width: 100%; max-height: 300px; }
-
-/* Separator */
-.sep { border: none; border-top: 1px solid var(--border); margin: 20px 0; }
-
-/* Animation for results */
-@keyframes fadeIn { from { opacity:0; transform: translateY(8px); } to { opacity:1; transform:translateY(0); } }
-.fade-in { animation: fadeIn 0.35s ease both; }
-
-/* Responsive */
-@media (max-width: 900px) {
-  .sidebar { width: 200px; }
-  .main { margin-left: 200px; }
-  .grid-2, .grid-3, .grid-4 { grid-template-columns: 1fr 1fr; }
+/* ── Navbar ───────────────────────────────────────────────────────────── */
+.navbar{
+  position:fixed;top:0;left:0;right:0;
+  display:flex;align-items:center;justify-content:space-between;
+  padding:18px 28px;
+  z-index:100;
 }
-@media (max-width: 680px) {
-  .sidebar { display: none; }
-  .main { margin-left: 0; }
-  .grid-2, .grid-3, .grid-4 { grid-template-columns: 1fr; }
+.nav-brand{display:flex;align-items:center;gap:10px;text-decoration:none;cursor:pointer;}
+.nav-logo{width:32px;height:32px;flex-shrink:0;}
+.nav-name{color:#fff;font-size:15px;font-weight:500;letter-spacing:0.02em;}
+.nav-hamburger{display:flex;flex-direction:column;gap:5px;cursor:pointer;padding:4px;}
+.nav-hamburger span{display:block;width:22px;height:2.5px;background:#888;border-radius:1px;}
+
+/* ── Upload screen ────────────────────────────────────────────────────── */
+#screen-upload{
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  min-height:100vh;padding:80px 20px 40px;
+}
+.page-title{
+  font-family:Georgia,"Times New Roman",Times,serif;
+  font-size:58px;font-weight:400;color:#7d7d7d;
+  letter-spacing:0.01em;margin-bottom:36px;text-align:center;
+}
+.upload-card{
+  background:#282828;border-radius:20px;
+  padding:28px 36px 24px;width:318px;
+  display:flex;flex-direction:column;align-items:center;
+  cursor:pointer;transition:background 0.15s;
+  user-select:none;
+}
+.upload-card.dragover{background:#333;}
+.drag-label{
+  font-family:Georgia,"Times New Roman",serif;
+  font-size:30px;font-weight:400;color:#fff;margin-bottom:14px;
+}
+.cursor-img{
+  width:92px;height:92px;object-fit:contain;
+  image-rendering:pixelated;image-rendering:crisp-edges;
+  margin-bottom:20px;display:block;
+}
+.upload-btn{
+  width:100%;padding:9px 0;
+  background:#1c1c1c;color:#aaa;
+  border:none;border-radius:8px;
+  font-size:13px;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  cursor:pointer;transition:background 0.15s,color 0.15s;
+}
+.upload-btn:hover{background:#252525;color:#ccc;}
+#file-input{display:none;}
+
+/* ── Loading screen ───────────────────────────────────────────────────── */
+#screen-loading{
+  display:none;flex-direction:column;align-items:center;justify-content:center;
+  min-height:100vh;gap:20px;
+}
+.spinner{
+  width:44px;height:44px;
+  border:3px solid #2a2a2a;border-top-color:#7d7d7d;
+  border-radius:50%;animation:spin 0.75s linear infinite;
+}
+@keyframes spin{to{transform:rotate(360deg);}}
+.loading-text{font-family:Georgia,serif;font-size:18px;color:#7d7d7d;}
+.loading-sub{font-size:12px;color:#444;font-family:-apple-system,sans-serif;}
+
+/* ── Results screen ───────────────────────────────────────────────────── */
+#screen-results{
+  display:none;flex-direction:column;min-height:100vh;
+}
+.results-header{
+  padding:18px 28px;display:flex;align-items:center;justify-content:space-between;
+  position:sticky;top:0;background:#0d0d0d;z-index:50;
+}
+.results-body{max-width:820px;margin:0 auto;padding:8px 28px 60px;width:100%;}
+
+.back-btn{
+  background:#282828;color:#aaa;border:none;border-radius:8px;
+  padding:7px 16px;font-size:12px;cursor:pointer;
+  font-family:-apple-system,sans-serif;transition:background 0.15s;
+  display:flex;align-items:center;gap:6px;
+}
+.back-btn:hover{background:#333;color:#ddd;}
+
+/* Verdict card */
+.verdict-card{
+  background:#282828;border-radius:16px;padding:32px 28px;
+  margin-bottom:16px;text-align:center;
+}
+.verdict-label{
+  font-family:Georgia,serif;font-size:40px;font-weight:400;margin-bottom:8px;
+}
+.v-fake{color:#f87171;} .v-real{color:#6ee7b7;} .v-uncertain{color:#fbbf24;}
+.verdict-meta{color:#888;font-size:14px;line-height:1.8;}
+.verdict-meta b{color:#ccc;}
+.prob-track{margin:18px 0 4px;background:#1c1c1c;border-radius:6px;height:6px;overflow:hidden;}
+.prob-fill{height:100%;border-radius:6px;transition:width .8s cubic-bezier(.4,0,.2,1);}
+.prob-legend{font-size:11px;color:#555;text-align:right;}
+
+/* Preview */
+.preview-wrap{
+  display:flex;gap:20px;align-items:flex-start;
+  background:#282828;border-radius:16px;padding:20px 24px;margin-bottom:16px;
+}
+.preview-img{
+  width:140px;height:140px;border-radius:10px;object-fit:cover;
+  background:#1c1c1c;flex-shrink:0;
+}
+.preview-meta{padding-top:4px;}
+.preview-meta p{font-size:13px;color:#888;line-height:1.9;}
+.preview-meta b{color:#bbb;}
+
+/* Section cards */
+.section-card{
+  background:#282828;border-radius:16px;padding:24px;margin-bottom:16px;
+}
+.section-title{
+  font-family:Georgia,serif;font-size:17px;color:#888;margin-bottom:16px;font-weight:400;
+}
+
+/* Agent rows */
+.agent-row{
+  display:flex;align-items:center;gap:12px;
+  padding:9px 0;border-bottom:1px solid #1e1e1e;
+}
+.agent-row:last-child{border-bottom:none;}
+.agent-name{flex:1;font-size:13px;color:#999;}
+.agent-bar-wrap{width:110px;height:4px;background:#1c1c1c;border-radius:2px;overflow:hidden;}
+.agent-bar-fill{height:100%;border-radius:2px;}
+.agent-score-val{font-size:12px;color:#666;width:42px;text-align:right;}
+.agent-skipped{opacity:0.38;font-style:italic;}
+
+/* Rationale */
+.rationale-text{font-size:14px;color:#888;line-height:1.8;}
+
+/* Actions */
+.action-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:4px;}
+.action-btn{
+  background:#1c1c1c;color:#888;border:1px solid #2a2a2a;
+  border-radius:8px;padding:8px 18px;font-size:12px;
+  cursor:pointer;font-family:-apple-system,sans-serif;transition:all 0.15s;
+}
+.action-btn:hover{background:#232323;color:#bbb;border-color:#333;}
+
+/* Disclaimer */
+.disclaimer{
+  background:#1a1610;border-left:3px solid #6b4a10;
+  border-radius:8px;padding:13px 16px;
+  font-size:12px;color:#777;line-height:1.7;margin-top:6px;
+}
+
+/* Error */
+.error-card{
+  background:#280d0d;border:1px solid #4a1515;
+  border-radius:16px;padding:24px;text-align:center;color:#f87171;
+  font-family:Georgia,serif;font-size:18px;
 }
 </style>
 </head>
 <body>
-<div class="layout">
 
-<!-- ── Sidebar ────────────────────────────────────────────────────────── -->
-<aside class="sidebar">
-  <div class="sidebar-logo">
-    <h1>🔍 Obscuro Deepimage</h1>
-    <p>Agentic Forensic Detection</p>
-    <span class="version">v1.0.0</span>
+<!-- Obscuro Logo SVG (reused) -->
+<template id="logo-tpl">
+<svg class="nav-logo" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <circle cx="16" cy="16" r="14" fill="#383838"/>
+  <!-- 8 small squares in ring -->
+  <rect x="14.4" y="4.8" width="3.2" height="3.2" rx="0.6" fill="#909090"/>
+  <rect x="22.4" y="7.6" width="3.2" height="3.2" rx="0.6" fill="#909090"
+        transform="rotate(45 24 9.2)"/>
+  <rect x="23.8" y="14.4" width="3.2" height="3.2" rx="0.6" fill="#909090"/>
+  <rect x="22.4" y="21.2" width="3.2" height="3.2" rx="0.6" fill="#909090"
+        transform="rotate(-45 24 22.8)"/>
+  <rect x="14.4" y="24" width="3.2" height="3.2" rx="0.6" fill="#909090"/>
+  <rect x="6.4" y="21.2" width="3.2" height="3.2" rx="0.6" fill="#909090"
+        transform="rotate(45 8 22.8)"/>
+  <rect x="5" y="14.4" width="3.2" height="3.2" rx="0.6" fill="#909090"/>
+  <rect x="6.4" y="7.6" width="3.2" height="3.2" rx="0.6" fill="#909090"
+        transform="rotate(-45 8 9.2)"/>
+  <circle cx="16" cy="16" r="2.4" fill="#909090"/>
+</svg>
+</template>
+
+<!-- ══════════════════ UPLOAD SCREEN ══════════════════ -->
+<div id="screen-upload">
+  <nav class="navbar">
+    <div class="nav-brand" onclick="goUpload()">
+      <svg class="nav-logo" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="16" cy="16" r="14" fill="#383838"/>
+        <rect x="14.4" y="4.8" width="3.2" height="3.2" rx="0.6" fill="#909090"/>
+        <rect x="22.4" y="7.6" width="3.2" height="3.2" rx="0.6" fill="#909090" transform="rotate(45 24 9.2)"/>
+        <rect x="23.8" y="14.4" width="3.2" height="3.2" rx="0.6" fill="#909090"/>
+        <rect x="22.4" y="21.2" width="3.2" height="3.2" rx="0.6" fill="#909090" transform="rotate(-45 24 22.8)"/>
+        <rect x="14.4" y="24" width="3.2" height="3.2" rx="0.6" fill="#909090"/>
+        <rect x="6.4" y="21.2" width="3.2" height="3.2" rx="0.6" fill="#909090" transform="rotate(45 8 22.8)"/>
+        <rect x="5" y="14.4" width="3.2" height="3.2" rx="0.6" fill="#909090"/>
+        <rect x="6.4" y="7.6" width="3.2" height="3.2" rx="0.6" fill="#909090" transform="rotate(-45 8 9.2)"/>
+        <circle cx="16" cy="16" r="2.4" fill="#909090"/>
+      </svg>
+      <span class="nav-name">Obscuro</span>
+    </div>
+    <div class="nav-hamburger">
+      <span></span><span></span><span></span>
+    </div>
+  </nav>
+
+  <h1 class="page-title">Obscuro Deepimage</h1>
+
+  <div class="upload-card" id="upload-card">
+    <div class="drag-label">Drag &amp; Drop</div>
+    <img class="cursor-img"
+         src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAqUAAAFxCAYAAABKn9GWAAAQAElEQVR4Aey9CZxc1Xnm/b73Vi/qbolFYpFAEgKJRSzBbBJIhgHHNhgbDAbMbjueJJP1F+fLMs5MJjPJ54lxnGXmmyRmsY2DwfYkwcFAbFZhbLBAYBazCMQi0L4gCUm9Vd2693ufU31Kt0u9V3V1LU+5njr7e875X/9KD+dWVQfCBwmQAAmQAAmQAAmQAAlMMQGa0im+AJyeBEigGQhwjyRAAiRAAqMRoCkdjRDbSYAESIAESIAESIAEJp1A2aZ00lfICUiABEiABEiABEiABBqeAE1pw19ibpAESKABCHALJEACJNDwBGhKG/4Sc4MkQAIkQAIkQAIkUPsEpt6U1j4jrpAESIAESIAESIAESGCSCdCUTjJghicBEiCBWiDANZAACZBArROgKa31K8T1kQAJkAAJkAAJkEATEGgAU9oEV4lbJAESIAESIAESIIEGJ0BT2uAXmNsjARIggYoQYBASIAESmGQCNKWTDJjhSYAESIAESIAESIAERidAUyoyOiX2IAESIAESIAESIAESmFQCNKWTipfBSYAESIAECgT4SgIkQAIjE6ApHZkPW0mABEiABEiABEiABKpAgKa0ApAZggRIgARIgARIgARIoDwCNKXl8eNoEiABEiCB6hDgLCRAAg1OgKa0wS8wt0cCJEACJEACJEAC9UCAprQWrhLXQAIkQAIkQAIkQAJNToCmtMn/D8DtkwAJkECzEOA+SYAEapsATWltXx+ujgRIgARIgARIgASaggBNaUNcZm6CBEiABEiABEiABOqbAE1pfV8/rp4ESIAESKBaBDgPCZDApBKgKZ1UvAxOAiRAAiRAAiRAAiQwFgI0pWOh1Ph9uEMSIAESIAESIAESmFICNKVTip+TkwAJkAAJNA8B7pQESGAkAjSlI9FhGwmQAAmQAAmQAAmQQFUI0JRWBXPjT8IdkgAJkAAJkAAJkEA5BGhKy6HHsSRAAiRAAiRQPQKciQQamgBNaUNfXm6OBEiABEiABEiABOqDAE1pfVynxl8ld0gCJEACJEACJNDUBGhKm/ryc/MkQAIkQALNRIB7JYFaJkBTWstXh2sjARIgARIgARIggSYhQFPaJBe68bfJHZIACZAACZAACdQzAZrSer56XDsJkAAJkAAJVJMA5yKBSSRAUzqJcBmaBEiABEiABEiABEhgbARoSsfGib0anwB3SAIkQAIkQAIkMIUEaEqnED6nJgESIAESIIHmIsDdksDwBGhKh2fDFhIgARIgARIgARIggSoRoCmtEmhO0/gEuEMSIAESIAESIIGJE6ApnTg7jiQBEiABEiABEqguAc7WwARoShv44nJrJEACJEACJEACJFAvBGhK6+VKcZ2NT4A7JAESIAESIIEmJkBT2sQXn1snARIgARIggWYjwP3WLgGa0tq9NlwZCZAACZAACZAACTQNAZrSprnU3GjjE+AOSYAESIAESKB+CdCU1u+148pJgARIgARIgASqTYDzTRoBmtJJQ8vAJEACJEACJEACJEACYyVAUzpWUuxHAo1PgDskARIgARIggSkjQFM6Zeg5MQmQAAmQAAmQQPMR4I6HI0BTOhwZ1pMACZAACZAACZAACVSNAE1p1VBzIhJofALcIQmQAAmQAAlMlABN6UTJcRwJkAAJkAAJkAAJVJ9Aw85IU9qwl5YbIwESIAESIAESIIH6IUBTWj/XiislgcYnwB2SAAmQAAk0LQGa0qa99Nw4CZAACZAACZBAMxKo1T3TlNbqleG6SIAESIAESIAESKCJCNCUNtHF5lZJoPEJcIckQAIkQAL1SoCmtF6vHNdNAiRAAiRAAiRAAlNBYJLmpCmdJLAMSwIkQAIkQAIkQAIkMHYCNKVjZ8WeJEACjU+AOyQBEiABEpgiAjSlUwSe05JAsxNYsWJFZvfGjbN27Ngxb+fOnfN37tx01K5dmxds3bp14YYNG45bv379sVvXrVu0deu6hdCWLVuORvtO67vDxkAbN26ct2nT20dZOt80z8bNfe+99Udu3779iO5t2+Z0d3fP7u7eBs1BeZvVeW3fvu4I9EN5796thw/S1q2HW/3s7evWHbF58+YF620t0JYtbx2WJEnY7NeO+ycBEiCB8ggMPZqmdGgurCUBEphkAjNnzpz3d7fd8oVbb735H2+++Wu3fe1r37z1llu+eds3v/n12+644/Zb7rrrjptv/863v/aNb9wB3fytb33D2m+/5bbbbrn561+/9Wu33XbrP95xxx1f+9a3vvcPlv79XXfd9fd33nnn/7n99u/9b0v/7pZvf/tvbr311r+++eY7LL3zb267666/tX5/+22rt75/fccd//LXt9/+za/eeec/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EmggAjSlDXQxuRUSIAESIAESIAESqFcCNKW1euW4LhIgARIgARIgARJoIgI0pU10sblVEiABEiCBwQRYIgESqB0CNKW1cy24EhIgARIgARIgARJoWgI0pQ176bkxEiABEiABEiABEqgfAjSl9XOtuFISIAESIIFaI8D1kAAJVIwATWnFUDIQCZAACZAACZAACZDARAnQlE6UXOOP4w5JgARIgARIgARIoGoEaEqrhpoTkQAJkAAJkEApAZZJgAQ8AZpST4IpCZAACZAACZAACZDAlBGgKZ0y9I0/MXdIAiRAAiRAAiRAAmMlQFM6VlLsRwIkQAIkQAK1R4ArIoGGIUBT2jCXkhshARIgARIgARIggfolQFNav9eu8VfOHZIACZAACZAACTQNAZrSprnU3CgJkAAJkAAJ7E+ANSRQKwRoSmvlSnAdJEACJEACJEACJNDEBGhKm/jiN/7WuUMSIAESIAESIIF6IUBTWi9XiuskARIgARIggVrEVnEQAAABjUlEQVQkwDWRQIUI0JRWCCTDkAAJkAAJkAAJkAAJTJwATenE2XFk4xPgDkmABEiABEiABKpEgKa0SqA5DQmQAAmQAAmQwFAEWEcCBQI0pQUOfCUBEiABEiABEiABEphCAjSlUwifUzc+Ae6QBEiABEiABEhgbARoSsfGib1IgARIgARIgARqkwBX1SAEaEob5EJyGyRAAiRAAiRAAiRQzwRoSuv56nHtjU+AOyQBEiABEiCBJiFAU9okF5rbJAESIAESIAESGJoAa2uDAE1pbVwHroIESIAESIAESIAEmpoATWlTX35uvvEJcIckQAIkQAIkUB8EaErr4zpxlSRAAiRAAiRAArVKgOuqCAGa0opgZBASIAESIAESIAESIIFyCNCUlkOPY0mg8QlwhyRAAiRAAiRQFQI0pVXBzElIgARIgARIgARIYDgCrAcBmlJQoEiABEiABEiABEiABKaUAE3plOLn5CTQ+AS4QxIgARIgARIYCwGa0rFQYh8SIAESIAESIAESqF0CDbGy/x8AAP//q7pjjwAAAAZJREFUAwBTAyZKOEte0QAAAABJRU5ErkJggg=="
+         alt="" draggable="false"/>
+    <button class="upload-btn" id="upload-btn">Upload</button>
   </div>
+</div>
+<input type="file" id="file-input"
+       accept=".jpg,.jpeg,.png,.webp,.bmp,.mp4,.avi,.mov,.mkv">
 
-  <div class="sidebar-section">
-    <div class="sidebar-section-title">Navigation</div>
-    <div class="nav-item active" onclick="switchTab('detect')"><span class="icon">🔬</span> Detect</div>
-    <div class="nav-item" onclick="switchTab('report')"><span class="icon">📋</span> Forensic Report</div>
-    <div class="nav-item" onclick="switchTab('training')"><span class="icon">🎓</span> Training Lab</div>
-    <div class="nav-item" onclick="switchTab('evolution')"><span class="icon">🧬</span> Algorithm Lab</div>
-    <div class="nav-item" onclick="switchTab('stats')"><span class="icon">📈</span> Accuracy Stats</div>
+<!-- ══════════════════ LOADING SCREEN ══════════════════ -->
+<div id="screen-loading">
+  <nav class="navbar">
+    <div class="nav-brand">
+      <svg class="nav-logo" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="16" cy="16" r="14" fill="#383838"/>
+        <rect x="14.4" y="4.8" width="3.2" height="3.2" rx="0.6" fill="#909090"/>
+        <rect x="22.4" y="7.6" width="3.2" height="3.2" rx="0.6" fill="#909090" transform="rotate(45 24 9.2)"/>
+        <rect x="23.8" y="14.4" width="3.2" height="3.2" rx="0.6" fill="#909090"/>
+        <rect x="22.4" y="21.2" width="3.2" height="3.2" rx="0.6" fill="#909090" transform="rotate(-45 24 22.8)"/>
+        <rect x="14.4" y="24" width="3.2" height="3.2" rx="0.6" fill="#909090"/>
+        <rect x="6.4" y="21.2" width="3.2" height="3.2" rx="0.6" fill="#909090" transform="rotate(45 8 22.8)"/>
+        <rect x="5" y="14.4" width="3.2" height="3.2" rx="0.6" fill="#909090"/>
+        <rect x="6.4" y="7.6" width="3.2" height="3.2" rx="0.6" fill="#909090" transform="rotate(-45 8 9.2)"/>
+        <circle cx="16" cy="16" r="2.4" fill="#909090"/>
+      </svg>
+      <span class="nav-name">Obscuro</span>
+    </div>
+    <div class="nav-hamburger">
+      <span></span><span></span><span></span>
+    </div>
+  </nav>
+  <div class="spinner"></div>
+  <div class="loading-text">Analysing…</div>
+  <div class="loading-sub" id="loading-fname"></div>
+</div>
+
+<!-- ══════════════════ RESULTS SCREEN ══════════════════ -->
+<div id="screen-results">
+  <div class="results-header">
+    <div class="nav-brand" onclick="goUpload()" style="cursor:pointer;">
+      <svg class="nav-logo" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="16" cy="16" r="14" fill="#383838"/>
+        <rect x="14.4" y="4.8" width="3.2" height="3.2" rx="0.6" fill="#909090"/>
+        <rect x="22.4" y="7.6" width="3.2" height="3.2" rx="0.6" fill="#909090" transform="rotate(45 24 9.2)"/>
+        <rect x="23.8" y="14.4" width="3.2" height="3.2" rx="0.6" fill="#909090"/>
+        <rect x="22.4" y="21.2" width="3.2" height="3.2" rx="0.6" fill="#909090" transform="rotate(-45 24 22.8)"/>
+        <rect x="14.4" y="24" width="3.2" height="3.2" rx="0.6" fill="#909090"/>
+        <rect x="6.4" y="21.2" width="3.2" height="3.2" rx="0.6" fill="#909090" transform="rotate(45 8 22.8)"/>
+        <rect x="5" y="14.4" width="3.2" height="3.2" rx="0.6" fill="#909090"/>
+        <rect x="6.4" y="7.6" width="3.2" height="3.2" rx="0.6" fill="#909090" transform="rotate(-45 8 9.2)"/>
+        <circle cx="16" cy="16" r="2.4" fill="#909090"/>
+      </svg>
+      <span class="nav-name">Obscuro</span>
+    </div>
+    <button class="back-btn" onclick="goUpload()">← Analyse another</button>
   </div>
-
-  <div class="sidebar-section">
-    <div class="sidebar-section-title">System Status</div>
-    <div id="sidebarStatus">
-      <div class="status-item"><span class="status-dot dot-yellow"></span>Checking API...</div>
-    </div>
-  </div>
-
-  <div class="sidebar-section">
-    <div class="sidebar-section-title">Forensic Agents</div>
-    <div class="status-item"><span class="icon" style="margin-right:6px;font-size:13px">🖼️</span><span>Spatial (ViT + EfficientNet)</span></div>
-    <div class="status-item"><span class="icon" style="margin-right:6px;font-size:13px">📡</span><span>Frequency (FFT/DCT)</span></div>
-    <div class="status-item"><span class="icon" style="margin-right:6px;font-size:13px">🎬</span><span>Temporal (optical flow)</span></div>
-    <div class="status-item"><span class="icon" style="margin-right:6px;font-size:13px">💓</span><span>Biological (rPPG)</span></div>
-    <div class="status-item"><span class="icon" style="margin-right:6px;font-size:13px">🎙️</span><span>Audio-Visual sync</span></div>
-    <div class="status-item"><span class="icon" style="margin-right:6px;font-size:13px">⚛️</span><span>Quantum Fusion</span></div>
-  </div>
-
-  <div class="sidebar-footer">
-    ⚠️ Research tool only. Not legally admissible.
-  </div>
-</aside>
-
-<!-- ── Main ───────────────────────────────────────────────────────────── -->
-<main class="main">
-  <div class="topbar">
-    <div>
-      <div class="topbar-title" id="topbarTitle">🔬 Forensic Analysis</div>
-      <div class="topbar-sub" id="topbarSub">Upload media to begin multi-agent deepfake detection</div>
-    </div>
-    <div class="topbar-right">
-      <span id="modelStatusBadge" class="tag tag-ai">⏳ Loading...</span>
-      <button class="btn btn-ghost btn-sm" onclick="checkHealth()">↻ Refresh</button>
-    </div>
-  </div>
-
-  <div class="content">
-
-    <!-- ── DETECT TAB ── -->
-    <div id="tab-detect" class="tab-panel active">
-      <div class="grid-2" style="margin-bottom:20px">
-        <!-- Upload -->
-        <div class="card" style="margin-bottom:0">
-          <div class="card-title"><span class="icon">📁</span> Media Upload</div>
-          <input type="file" id="fileInput" accept=".jpg,.jpeg,.png,.webp,.bmp,.mp4,.avi,.mov,.mkv" style="display:none" onchange="onFileSelect(this)">
-          <div class="upload-zone" id="uploadZone" onclick="document.getElementById('fileInput').click()" ondragover="onDragOver(event)" ondragleave="onDragLeave(event)" ondrop="onDrop(event)">
-            <div class="icon">📤</div>
-            <h3>Drop file or click to browse</h3>
-            <p>Images and videos accepted</p>
-            <div class="formats">
-              <span class="format-badge">JPG</span><span class="format-badge">PNG</span>
-              <span class="format-badge">WebP</span><span class="format-badge">MP4</span>
-              <span class="format-badge">AVI</span><span class="format-badge">MOV</span>
-            </div>
-          </div>
-          <div id="fileInfo" style="display:none; margin-top:14px">
-            <div id="mediaPreview" class="media-preview" style="margin-bottom:12px"></div>
-            <div id="fileMeta" style="font-size:12px; color:var(--muted); line-height:1.8"></div>
-            <button class="btn btn-primary" id="analyseBtn" onclick="runAnalysis()" style="margin-top:14px; width:100%">
-              🔬 Run Forensic Analysis
-            </button>
-          </div>
-        </div>
-
-        <!-- Quick result -->
-        <div class="card" style="margin-bottom:0">
-          <div class="card-title"><span class="icon">⚖️</span> Verdict</div>
-          <div id="verdictContainer">
-            <div style="text-align:center; padding:40px 0; color:var(--muted2)">
-              <div style="font-size:36px; margin-bottom:12px">🧭</div>
-              <div>Awaiting analysis</div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Analysis progress -->
-      <div id="progressCard" class="card" style="display:none">
-        <div class="card-title"><span class="spinner"></span>&nbsp; Analysis in Progress</div>
-        <div id="progressLog" class="log-box" style="height:80px"></div>
-      </div>
-
-      <!-- Agent breakdown -->
-      <div id="agentBreakdown" style="display:none" class="fade-in">
-        <div class="grid-2">
-          <div class="card" style="margin-bottom:0">
-            <div class="card-title"><span class="icon">📊</span> Signal Breakdown</div>
-            <div id="agentCards"></div>
-          </div>
-          <div>
-            <div class="card" style="margin-bottom:18px">
-              <div class="card-title"><span class="icon">⚛️</span> Fusion Weights <span class="tag tag-quantum" style="margin-left:8px">Quantum-Inspired</span></div>
-              <div id="fusionWeights"></div>
-            </div>
-            <div class="card" style="margin-bottom:0">
-              <div class="card-title"><span class="icon">🧮</span> Probability Meter</div>
-              <div id="probMeter"></div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Rationale -->
-        <div class="card">
-          <div class="card-title"><span class="icon">🔎</span> Detection Rationale</div>
-          <div id="rationaleText" class="report-viewer" style="max-height:260px; padding:16px; font-size:13px"></div>
-        </div>
-
-        <!-- Actions -->
-        <div style="display:flex; gap:12px; flex-wrap:wrap; margin-top:4px">
-          <button class="btn btn-success" onclick="switchTab('report')">📋 View Full Forensic Report</button>
-          <button class="btn btn-ghost" id="downloadJsonBtn" onclick="downloadJson()">📥 Download JSON</button>
-          <button class="btn btn-ghost" id="feedbackBtn" onclick="showFeedback()">📬 Submit Ground Truth</button>
-        </div>
-
-        <!-- Feedback form -->
-        <div id="feedbackForm" class="card" style="display:none; margin-top:16px">
-          <div class="card-title">📬 Ground Truth Feedback</div>
-          <p style="color:var(--muted); font-size:12px; margin-bottom:14px">Labelling this sample helps the self-improvement and training agents improve accuracy over time.</p>
-          <div style="display:flex; gap:14px; align-items:center">
-            <label style="display:flex; align-items:center; gap:6px; cursor:pointer; margin:0">
-              <input type="radio" name="gt" value="fake" style="accent-color:var(--red)"> <span style="color:var(--red); font-weight:600">FAKE</span>
-            </label>
-            <label style="display:flex; align-items:center; gap:6px; cursor:pointer; margin:0">
-              <input type="radio" name="gt" value="real" style="accent-color:var(--accent2)"> <span style="color:var(--accent2); font-weight:600">REAL</span>
-            </label>
-            <button class="btn btn-primary btn-sm" onclick="submitFeedback()">Submit</button>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- ── REPORT TAB ── -->
-    <div id="tab-report" class="tab-panel">
-      <div id="reportContainer">
-        <div style="text-align:center; padding:60px 0; color:var(--muted2)">
-          <div style="font-size:48px; margin-bottom:16px">📋</div>
-          <div style="font-size:16px; margin-bottom:8px">No report available yet</div>
-          <div style="font-size:13px">Run an analysis to generate a full forensic specialist report.</div>
-        </div>
-      </div>
-    </div>
-
-    <!-- ── TRAINING TAB ── -->
-    <div id="tab-training" class="tab-panel">
-      <div class="grid-2">
-        <div class="card" style="margin-bottom:0">
-          <div class="card-title"><span class="icon">⚙️</span> Training Configuration</div>
-          <div style="margin-bottom:14px">
-            <label>Epochs</label>
-            <input type="number" id="trainEpochs" value="10" min="1" max="100">
-          </div>
-          <div style="margin-bottom:14px">
-            <label>Synthetic Samples per Class</label>
-            <input type="number" id="trainSamples" value="100" min="10" max="1000">
-          </div>
-          <div style="margin-bottom:14px">
-            <label>Learning Rate</label>
-            <input type="number" id="trainLr" value="0.0001" min="0.000001" max="0.01" step="0.00001">
-          </div>
-          <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:18px">
-            <button class="btn btn-success" id="startTrainBtn" onclick="startTraining()">▶ Start Training</button>
-            <button class="btn btn-danger btn-sm" onclick="stopTraining()">⏹ Stop</button>
-          </div>
-          <div class="card" style="margin-top:18px; background:var(--bg); border-color:var(--border)">
-            <div class="card-title" style="font-size:11px">ℹ️ About Autonomous Training</div>
-            <p style="font-size:12px; color:var(--muted); line-height:1.6">
-              The training agent fine-tunes the EfficientNet-B4 spatial classifier using synthetic augmentation data and any user-labelled samples from the prediction log. The HuggingFace ViT model is kept frozen. Training runs entirely on CPU in the background.
-              <br><br>
-              <span class="tag tag-experimental">Experimental</span>
-            </p>
-          </div>
-        </div>
-
-        <div>
-          <div class="card" style="margin-bottom:18px">
-            <div class="card-title"><span class="icon">📊</span> Training Progress</div>
-            <div id="trainStatusBadge" style="margin-bottom:12px; font-size:13px; color:var(--muted)">Status: <strong id="trainStatus">idle</strong></div>
-            <div class="grid-2" style="margin-bottom:14px">
-              <div class="metric-card">
-                <div class="metric-val" id="trainEpochDisplay">—</div>
-                <div class="metric-lbl">Epoch</div>
-              </div>
-              <div class="metric-card">
-                <div class="metric-val" id="trainBestAcc">—</div>
-                <div class="metric-lbl">Best Val Acc</div>
-              </div>
-            </div>
-            <div style="margin-bottom:8px">
-              <div style="display:flex; justify-content:space-between; font-size:11px; color:var(--muted); margin-bottom:4px">
-                <span>Train Loss</span><span id="trainLossVal">—</span>
-              </div>
-              <div class="chart-wrap" id="lossChartWrap">
-                <canvas id="lossChart"></canvas>
-              </div>
-            </div>
-            <div>
-              <div style="display:flex; justify-content:space-between; font-size:11px; color:var(--muted); margin-bottom:4px">
-                <span>Val Accuracy</span><span id="trainAccVal">—</span>
-              </div>
-              <div class="chart-wrap" id="accChartWrap">
-                <canvas id="accChart"></canvas>
-              </div>
-            </div>
-          </div>
-
-          <div class="card" style="margin-bottom:0">
-            <div class="card-title"><span class="icon">📋</span> Training Log</div>
-            <div class="log-box" id="trainLog">Waiting for training to start...</div>
-          </div>
-        </div>
-      </div>
-
-      <div class="card" style="margin-top:18px">
-        <div class="card-title"><span class="icon">🏷️</span> Labelled Samples Available for Training</div>
-        <div id="labelledCount" style="color:var(--muted); font-size:13px">Loading...</div>
-      </div>
-    </div>
-
-    <!-- ── EVOLUTION TAB ── -->
-    <div id="tab-evolution" class="tab-panel">
-      <div class="grid-2">
-        <div class="card" style="margin-bottom:0">
-          <div class="card-title"><span class="icon">🧬</span> Algorithm Evolution Engine <span class="tag tag-ai" style="margin-left:8px">Self-Designing</span></div>
-          <p style="font-size:12px; color:var(--muted); line-height:1.6; margin-bottom:18px">
-            The Algorithm Evolver uses a genetic algorithm + Bayesian optimisation to autonomously discover superior fusion weight configurations and design novel detection algorithm variants. It evaluates candidates against labelled predictions and promotes the best-performing configuration to production.
-          </p>
-          <div style="margin-bottom:14px">
-            <label>Generations</label>
-            <input type="number" id="evolveGens" value="20" min="5" max="200">
-          </div>
-          <div style="margin-bottom:14px">
-            <label>Population Size</label>
-            <input type="number" id="evolvePopSize" value="10" min="4" max="50">
-          </div>
-          <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:18px">
-            <button class="btn btn-purple" onclick="startEvolution()">🧬 Start Evolution</button>
-            <button class="btn btn-danger btn-sm" onclick="stopEvolution()">⏹ Stop</button>
-            <button class="btn btn-ghost btn-sm" onclick="resetEvolution()">↺ Reset to Default</button>
-          </div>
-        </div>
-
-        <div>
-          <div class="card" style="margin-bottom:18px">
-            <div class="card-title"><span class="icon">📊</span> Evolution Status</div>
-            <div style="font-size:13px; color:var(--muted); margin-bottom:12px">Status: <strong id="evolveStatus">idle</strong> | Generation: <strong id="evolveGen">—</strong></div>
-            <div class="grid-2" style="margin-bottom:14px">
-              <div class="metric-card">
-                <div class="metric-val" id="evolveBestF1">—</div>
-                <div class="metric-lbl">Best F1 Score</div>
-              </div>
-              <div class="metric-card">
-                <div class="metric-val" id="evolveEvaluated">—</div>
-                <div class="metric-lbl">Configs Evaluated</div>
-              </div>
-            </div>
-          </div>
-
-          <div class="card" style="margin-bottom:18px">
-            <div class="card-title"><span class="icon">⚖️</span> Active Algorithm Configuration</div>
-            <div id="activeWeights">Loading...</div>
-          </div>
-        </div>
-      </div>
-
-      <div class="grid-2" style="margin-top:18px">
-        <div class="card" style="margin-bottom:0">
-          <div class="card-title"><span class="icon">💡</span> Designed Algorithms</div>
-          <div id="designedAlgos" style="color:var(--muted); font-size:13px">No algorithms designed yet. Run evolution to generate novel algorithm variants.</div>
-        </div>
-        <div class="card" style="margin-bottom:0">
-          <div class="card-title"><span class="icon">📋</span> Evolution Log</div>
-          <div class="log-box" id="evolveLog">Waiting for evolution to start...</div>
-        </div>
-      </div>
-
-      <div class="card" id="improvementsCard" style="margin-top:18px; display:none">
-        <div class="card-title"><span class="icon">🚀</span> Improvements Found</div>
-        <div id="improvementsList"></div>
-      </div>
-    </div>
-
-    <!-- ── STATS TAB ── -->
-    <div id="tab-stats" class="tab-panel">
-      <div id="statsContent">
-        <div style="text-align:center; padding:40px; color:var(--muted2)">
-          <div class="spinner" style="width:24px;height:24px;margin:0 auto 16px"></div>
-          Loading stats...
-        </div>
-      </div>
-    </div>
-
-  </div><!-- /content -->
-</main>
+  <div class="results-body" id="results-body"></div>
 </div>
 
 <script>
-// ─── State ────────────────────────────────────────────────────────────────────
-let currentResult = null;
-let currentFile = null;
-let currentFileBytes = null;
-let currentHash = null;
-let trainingPollTimer = null;
-let evolutionPollTimer = null;
-let statsPollTimer = null;
+/* ── Screen management ─────────────────────────────────────────────────── */
+const screens = {
+  upload:  document.getElementById("screen-upload"),
+  loading: document.getElementById("screen-loading"),
+  results: document.getElementById("screen-results"),
+};
+function show(name) {
+  Object.values(screens).forEach(s => s.style.display = "none");
+  screens[name].style.display = "flex";
+  screens[name].style.flexDirection = "column";
+}
+show("upload");
 
-// ─── Tab switching ────────────────────────────────────────────────────────────
-function switchTab(name) {
-  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
-  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-  document.getElementById('tab-' + name).classList.add('active');
-  document.querySelectorAll('.nav-item').forEach(n => {
-    if (n.textContent.toLowerCase().includes(name === 'detect' ? 'detect' :
-        name === 'report' ? 'report' : name === 'training' ? 'training' :
-        name === 'evolution' ? 'algorithm' : 'accuracy')) {
-      n.classList.add('active');
-    }
-  });
-  const titles = {
-    detect: ['🔬 Forensic Analysis', 'Upload media to begin multi-agent deepfake detection'],
-    report: ['📋 Forensic Specialist Report', 'Full court-grade digital forensic examination report'],
-    training: ['🎓 Autonomous Training Lab', 'Fine-tune detection models with labelled data'],
-    evolution: ['🧬 Algorithm Evolution Lab', 'Self-designing algorithm optimisation engine'],
-    stats: ['📈 Accuracy & Calibration', 'Self-improvement agent performance metrics'],
-  };
-  document.getElementById('topbarTitle').textContent = titles[name]?.[0] || '';
-  document.getElementById('topbarSub').textContent = titles[name]?.[1] || '';
-
-  if (name === 'stats') loadStats();
-  if (name === 'training') { loadTrainingStatus(); loadLabelledCount(); }
-  if (name === 'evolution') { loadEvolutionStatus(); loadActiveConfig(); }
+function goUpload() {
+  show("upload");
+  document.getElementById("file-input").value = "";
 }
 
-// ─── Health check ─────────────────────────────────────────────────────────────
-async function checkHealth() {
-  try {
-    const r = await fetch('/api/health');
-    const d = await r.json();
-    const statusEl = document.getElementById('sidebarStatus');
-    const badge = document.getElementById('modelStatusBadge');
-    if (d.status === 'ok') {
-      statusEl.innerHTML = `
-        <div class="status-item"><span class="status-dot dot-green"></span><strong>API:</strong>&nbsp;Online</div>
-        <div class="status-item"><span class="status-dot ${d.models_loaded ? 'dot-green' : 'dot-yellow'}"></span><strong>Models:</strong>&nbsp;${d.models_loaded ? 'Loaded' : 'Loading…'}</div>
-        <div class="status-item"><span class="status-dot dot-green"></span><strong>Version:</strong>&nbsp;${d.version}</div>`;
-      badge.textContent = d.models_loaded ? '✅ Models Ready' : '⏳ Loading…';
-      badge.className = 'tag ' + (d.models_loaded ? 'tag-ai' : 'tag-experimental');
-    }
-  } catch (e) {
-    document.getElementById('sidebarStatus').innerHTML =
-      '<div class="status-item"><span class="status-dot dot-red"></span><strong>API:</strong>&nbsp;Offline</div>';
-    document.getElementById('modelStatusBadge').textContent = '❌ API Offline';
-    document.getElementById('modelStatusBadge').className = 'tag';
-  }
-}
-checkHealth();
-setInterval(checkHealth, 15000);
+/* ── Drag & drop wiring ────────────────────────────────────────────────── */
+const card = document.getElementById("upload-card");
+const fileInput = document.getElementById("file-input");
+const uploadBtn = document.getElementById("upload-btn");
 
-// ─── File upload ──────────────────────────────────────────────────────────────
-function onFileSelect(input) {
-  if (input.files && input.files[0]) handleFile(input.files[0]);
-}
-function onDragOver(e) { e.preventDefault(); document.getElementById('uploadZone').classList.add('drag-over'); }
-function onDragLeave(e) { document.getElementById('uploadZone').classList.remove('drag-over'); }
-function onDrop(e) {
+uploadBtn.addEventListener("click", (e) => {
+  e.stopPropagation();
+  fileInput.click();
+});
+card.addEventListener("click", () => fileInput.click());
+
+card.addEventListener("dragover", (e) => {
   e.preventDefault();
-  document.getElementById('uploadZone').classList.remove('drag-over');
-  if (e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]);
-}
+  card.classList.add("dragover");
+});
+card.addEventListener("dragleave", () => card.classList.remove("dragover"));
+card.addEventListener("drop", (e) => {
+  e.preventDefault();
+  card.classList.remove("dragover");
+  const file = e.dataTransfer.files[0];
+  if (file) processFile(file);
+});
+fileInput.addEventListener("change", (e) => {
+  if (e.target.files[0]) processFile(e.target.files[0]);
+});
 
-function handleFile(file) {
-  currentFile = file;
-  const isVideo = /\.(mp4|avi|mov|mkv)$/i.test(file.name);
-  const sizeMB = (file.size / 1024 / 1024).toFixed(2);
+/* Also allow full-page drop */
+document.body.addEventListener("dragover", (e) => e.preventDefault());
+document.body.addEventListener("drop", (e) => {
+  e.preventDefault();
+  const file = e.dataTransfer.files[0];
+  if (file) processFile(file);
+});
 
-  const reader = new FileReader();
-  reader.onload = (e) => {
-    currentFileBytes = e.target.result;
-    const preview = document.getElementById('mediaPreview');
-    if (isVideo) {
-      preview.innerHTML = `<video controls src="${e.target.result}" style="max-width:100%;max-height:200px"></video>`;
-    } else {
-      preview.innerHTML = `<img src="${e.target.result}" style="max-width:100%;max-height:200px;object-fit:contain">`;
-    }
-  };
-  reader.readAsDataURL(file);
+/* ── File processing ───────────────────────────────────────────────────── */
+let lastResult = null;
+let lastFilename = "";
+let lastFileBytes = null;
 
-  document.getElementById('fileMeta').innerHTML =
-    `📄 <strong>${file.name}</strong> · ${sizeMB} MB · ${isVideo ? '🎬 Video' : '🖼️ Image'}`;
-  document.getElementById('fileInfo').style.display = 'block';
-  document.getElementById('uploadZone').style.display = 'none';
-}
+async function processFile(file) {
+  lastFilename = file.name;
+  document.getElementById("loading-fname").textContent = file.name;
+  show("loading");
 
-// ─── Analysis ─────────────────────────────────────────────────────────────────
-async function runAnalysis() {
-  if (!currentFile) return;
-
-  const btn = document.getElementById('analyseBtn');
-  btn.disabled = true;
-  btn.innerHTML = '<span class="spinner"></span> Analysing…';
-
-  document.getElementById('progressCard').style.display = 'block';
-  document.getElementById('agentBreakdown').style.display = 'none';
-  document.getElementById('verdictContainer').innerHTML =
-    '<div style="text-align:center;padding:40px 0"><span class="spinner" style="width:28px;height:28px"></span><div style="margin-top:14px;color:var(--muted)">Running multi-agent analysis…</div></div>';
-
-  const log = document.getElementById('progressLog');
-  function addLog(msg) {
-    log.innerHTML += `<div class="log-entry"><span class="log-time">[${new Date().toLocaleTimeString()}]</span> <span class="log-msg">${msg}</span></div>`;
-    log.scrollTop = log.scrollHeight;
-  }
-
-  addLog('Uploading file to forensic analysis pipeline…');
-  addLog('Dispatching Spatial Forensics Agent (ViT + EfficientNet-B4)…');
-
-  const formData = new FormData();
-  formData.append('file', currentFile);
+  const fd = new FormData();
+  fd.append("file", file, file.name);
 
   try {
-    addLog('Running Frequency Analysis Agent (FFT/DCT/channel correlation)…');
-    const resp = await fetch('/api/analyse', { method: 'POST', body: formData });
-
+    const resp = await fetch("/api/analyse", { method: "POST", body: fd });
     if (!resp.ok) {
-      const err = await resp.text();
-      showToast('Analysis failed: ' + err.slice(0, 200), 'error');
-      btn.disabled = false; btn.innerHTML = '🔬 Run Forensic Analysis';
+      const txt = await resp.text();
+      showError("API error " + resp.status + ": " + txt.slice(0, 300));
       return;
     }
-
-    const result = await resp.json();
-    currentResult = result;
-
-    // Compute client-side hash for feedback
-    const arrayBuffer = await currentFile.arrayBuffer();
-    const hashBuffer = await crypto.subtle.digest('SHA-256', arrayBuffer);
-    const hashArray = Array.from(new Uint8Array(hashBuffer));
-    currentHash = hashArray.map(b => b.toString(16).padStart(2,'0')).join('').slice(0, 16);
-
-    addLog('Fusion Agent: quantum-inspired weight calibration complete.');
-    addLog('Generating forensic specialist report…');
-    addLog(`✅ Analysis complete in ${result.processing_time_s?.toFixed(2)}s`);
-
-    renderVerdict(result);
-    renderAgentBreakdown(result);
-    renderForensicReport(result);
-
-    document.getElementById('agentBreakdown').style.display = 'block';
-    document.getElementById('progressCard').style.display = 'none';
-
-  } catch (e) {
-    showToast('Request error: ' + e.message, 'error');
-    addLog('❌ Error: ' + e.message);
+    const data = await resp.json();
+    lastResult = data;
+    // Stash preview bytes
+    const reader = new FileReader();
+    reader.onload = (ev) => { lastFileBytes = ev.target.result; renderResults(data, file); };
+    reader.readAsDataURL(file);
+  } catch (err) {
+    showError("Connection error: " + err.message);
   }
-
-  btn.disabled = false;
-  btn.innerHTML = '🔬 Run Forensic Analysis';
 }
 
-// ─── Render verdict ───────────────────────────────────────────────────────────
-function renderVerdict(r) {
-  const verdict = r.verdict || 'UNCERTAIN';
-  const prob = (r.deepfake_probability * 100).toFixed(1);
-  const conf = (r.confidence_in_verdict * 100).toFixed(0);
-  const emoji = { 'LIKELY FAKE': '🚨', 'LIKELY REAL': '✅', 'UNCERTAIN': '⚠️' }[verdict] || '❓';
-  const cls = { 'LIKELY FAKE': 'verdict-fake', 'LIKELY REAL': 'verdict-real', 'UNCERTAIN': 'verdict-uncertain' }[verdict] || 'verdict-uncertain';
+function showError(msg) {
+  document.getElementById("results-body").innerHTML =
+    `<div class="error-card">${msg}<br><br>
+     <button class="action-btn" onclick="goUpload()">Try again</button></div>`;
+  show("results");
+}
 
-  document.getElementById('verdictContainer').innerHTML = `
-    <div class="verdict-badge ${cls} fade-in">
-      <div class="verdict-label">${emoji} ${verdict}</div>
-      <div class="verdict-meta">
-        <div class="verdict-meta-item">
-          <div class="val">${prob}%</div>
-          <div class="lbl">Deepfake Prob.</div>
-        </div>
-        <div class="verdict-meta-item">
-          <div class="val">${conf}%</div>
-          <div class="lbl">Confidence</div>
-        </div>
-        <div class="verdict-meta-item">
-          <div class="val">${r.processing_time_s?.toFixed(1)}s</div>
-          <div class="lbl">Time</div>
-        </div>
-        <div class="verdict-meta-item">
-          <div class="val">${r.media_type?.toUpperCase()}</div>
-          <div class="lbl">Media Type</div>
-        </div>
+/* ── Results rendering ─────────────────────────────────────────────────── */
+function scoreColor(s) {
+  if (s > 0.58) return "#f87171";
+  if (s < 0.42) return "#6ee7b7";
+  return "#fbbf24";
+}
+
+function renderResults(r, file) {
+  const verdict  = r.verdict || "UNCERTAIN";
+  const prob     = r.deepfake_probability ?? 0.5;
+  const conf     = r.confidence_in_verdict ?? 0;
+  const media    = r.media_type || "image";
+  const procTime = r.processing_time_s?.toFixed(2) ?? "—";
+  const rationale = r.rationale || "No rationale available.";
+  const agents   = r.agent_results || [];
+  const weights  = r.fusion_weights || {};
+
+  const verdictClass = verdict === "LIKELY FAKE" ? "v-fake"
+                     : verdict === "LIKELY REAL"  ? "v-real"
+                     : "v-uncertain";
+
+  const isImage = /\.(jpe?g|png|webp|bmp)$/i.test(file.name);
+  const previewEl = isImage
+    ? `<img class="preview-img" src="${lastFileBytes}" alt="${file.name}">`
+    : `<div class="preview-img" style="display:flex;align-items:center;justify-content:center;color:#555;font-size:12px;">video</div>`;
+
+  const agentRows = agents.map(a => {
+    const name  = a.agent_name || "Agent";
+    const ran   = a.ran !== false;
+    const score = a.score ?? 0.5;
+    const pct   = (score * 100).toFixed(1);
+    const color = scoreColor(score);
+    if (!ran) {
+      return `<div class="agent-row agent-skipped">
+                <span class="agent-name">${name}</span>
+                <span class="agent-score-val" style="color:#444">skipped</span>
+              </div>`;
+    }
+    return `<div class="agent-row">
+              <span class="agent-name">${name}</span>
+              <div class="agent-bar-wrap">
+                <div class="agent-bar-fill" style="width:${score*100}%;background:${color}"></div>
+              </div>
+              <span class="agent-score-val">${pct}%</span>
+            </div>`;
+  }).join("");
+
+  const weightRows = Object.entries(weights).map(([k, w]) => {
+    const label = k.replace(/_score$/, "").replace(/_/g, " ")
+                   .replace(/\w/g, c => c.toUpperCase());
+    const color = scoreColor(w);
+    return `<div class="agent-row">
+              <span class="agent-name">${label}</span>
+              <div class="agent-bar-wrap">
+                <div class="agent-bar-fill" style="width:${w*100}%;background:#7d7d7d"></div>
+              </div>
+              <span class="agent-score-val">${(w*100).toFixed(0)}%</span>
+            </div>`;
+  }).join("");
+
+  const warnings = (r.warnings || []).map(w =>
+    `<div style="background:#1e1a10;border-left:3px solid #78541e;border-radius:6px;padding:9px 14px;font-size:12px;color:#aaa;margin-bottom:8px;">${w}</div>`
+  ).join("");
+
+  document.getElementById("results-body").innerHTML = `
+    <!-- Preview -->
+    <div class="preview-wrap">
+      ${previewEl}
+      <div class="preview-meta">
+        <p><b>File</b> ${file.name}</p>
+        <p><b>Size</b> ${(file.size/1024/1024).toFixed(2)} MB</p>
+        <p><b>Type</b> ${media}</p>
+        <p><b>Time</b> ${procTime}s</p>
       </div>
     </div>
-    ${(r.warnings||[]).map(w => `<div style="background:rgba(227,179,65,0.1);border:1px solid var(--yellow);border-radius:6px;padding:8px 12px;font-size:12px;color:var(--yellow);margin-bottom:8px">⚠️ ${w}</div>`).join('')}`;
-}
 
-// ─── Render agent breakdown ───────────────────────────────────────────────────
-function renderAgentBreakdown(r) {
-  const weights = r.fusion_weights || {};
-  const agentsEl = document.getElementById('agentCards');
-  agentsEl.innerHTML = '';
-
-  (r.agent_results || []).forEach((ar, i) => {
-    const signal = ar.signal_name || '';
-    const score = ar.score || 0;
-    const ran = ar.ran !== false;
-    const direction = score > 0.55 ? 'fake' : score < 0.45 ? 'real' : 'neutral';
-    const dirLabel = score > 0.55 ? '🔴 FAKE signal' : score < 0.45 ? '🟢 REAL signal' : '🟡 Neutral';
-    const badgeCls = ran ? (direction === 'fake' ? 'badge-fake' : direction === 'real' ? 'badge-real' : 'badge-neutral') : 'badge-skipped';
-    const badgeText = ran ? dirLabel : '⏭ Skipped';
-    const weight = weights[signal] || 0;
-    const barColor = direction === 'fake' ? 'bar-red' : direction === 'real' ? 'bar-green' : 'bar-yellow';
-
-    const detailsHtml = Object.entries(ar.details || {})
-      .filter(([k]) => !['note','caveat','error'].includes(k))
-      .slice(0, 6)
-      .map(([k,v]) => `<div class="detail-row"><span class="detail-key">${k.replace(/_/g,' ')}</span><span class="detail-val">${v}</span></div>`)
-      .join('') +
-      (ar.details?.note ? `<div style="margin-top:8px;color:var(--muted);font-size:11px">ℹ️ ${ar.details.note}</div>` : '') +
-      (ar.details?.caveat ? `<div style="margin-top:6px;color:var(--yellow);font-size:11px">⚠️ ${ar.details.caveat}</div>` : '');
-
-    agentsEl.innerHTML += `
-      <div class="agent-card">
-        <div class="agent-card-header" onclick="toggleAgent(${i})">
-          <div>
-            <div class="agent-name">${ar.agent_name}</div>
-            <div style="font-size:11px;color:var(--muted);margin-top:2px">Weight: ${(weight*100).toFixed(0)}%</div>
-          </div>
-          <div style="text-align:right">
-            <div class="agent-score ${ran ? direction : ''}">${ran ? score.toFixed(3) : '—'}</div>
-            <div class="agent-badge ${badgeCls}" style="margin-top:4px">${badgeText}</div>
-          </div>
-        </div>
-        ${ran ? `<div style="margin-top:8px">
-          <div class="progress-bar-wrap"><div class="progress-bar ${barColor}" style="width:${(score*100).toFixed(1)}%"></div></div>
-          <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--muted2);margin-top:3px"><span>Confidence: ${(ar.confidence*100).toFixed(0)}%</span><span>${(score*100).toFixed(1)}%</span></div>
-        </div>` : ''}
-        ${ran && detailsHtml ? `<div class="agent-details" id="detail-${i}">${detailsHtml}</div>` : ''}
-      </div>`;
-  });
-
-  // Fusion weights
-  const fw = document.getElementById('fusionWeights');
-  fw.innerHTML = '';
-  Object.entries(weights).forEach(([s, w]) => {
-    const name = s.replace(/_score$/, '').replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
-    const pct = (w * 100).toFixed(1);
-    fw.innerHTML += `<div class="weight-row">
-      <div class="weight-name">${name}</div>
-      <div class="weight-bar-wrap"><div class="weight-bar" style="width:${pct}%"></div></div>
-      <div class="weight-val">${pct}%</div>
-    </div>`;
-  });
-
-  // Probability meter
-  const prob = r.deepfake_probability || 0;
-  const barCls = prob > 0.65 ? 'bar-red' : prob < 0.35 ? 'bar-green' : 'bar-yellow';
-  const label = prob > 0.75 ? 'High confidence FAKE' : prob > 0.55 ? 'Leaning FAKE' : prob < 0.25 ? 'High confidence REAL' : prob < 0.45 ? 'Leaning REAL' : 'Inconclusive';
-  document.getElementById('probMeter').innerHTML = `
-    <div style="font-size:28px;font-family:var(--font);font-weight:700;margin-bottom:8px">${(prob*100).toFixed(1)}%</div>
-    <div class="progress-bar-wrap" style="height:12px"><div class="progress-bar ${barCls}" style="width:${(prob*100).toFixed(1)}%"></div></div>
-    <div style="font-size:12px;color:var(--muted);margin-top:8px">${label}</div>`;
-
-  // Rationale
-  if (typeof marked !== 'undefined') {
-    document.getElementById('rationaleText').innerHTML = marked.parse(r.rationale || '');
-  } else {
-    document.getElementById('rationaleText').textContent = r.rationale || '';
-  }
-}
-
-function toggleAgent(i) {
-  const el = document.getElementById('detail-' + i);
-  if (el) el.classList.toggle('open');
-}
-
-// ─── Forensic report ──────────────────────────────────────────────────────────
-function renderForensicReport(r) {
-  const report = r.forensic_report;
-  if (!report) return;
-
-  const html = typeof marked !== 'undefined' ? marked.parse(report) : report.replace(/\n/g, '<br>');
-  document.getElementById('reportContainer').innerHTML = `
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
-      <div style="font-size:13px;color:var(--muted)">Full forensic examination report generated by Obscuro Deepimage Forensic Writer Agent</div>
-      <button class="btn btn-ghost btn-sm" onclick="downloadReport()">📥 Download Report (MD)</button>
+    <!-- Verdict -->
+    <div class="verdict-card">
+      <div class="verdict-label ${verdictClass}">${verdict}</div>
+      <div class="verdict-meta">
+        Deepfake probability: <b>${(prob*100).toFixed(1)}%</b> &nbsp;·&nbsp;
+        Verdict confidence: <b>${(conf*100).toFixed(0)}%</b>
+      </div>
+      ${warnings}
+      <div class="prob-track">
+        <div class="prob-fill" style="width:${prob*100}%;background:${scoreColor(prob)}"></div>
+      </div>
+      <div class="prob-legend">${(prob*100).toFixed(1)}% deepfake probability</div>
     </div>
-    <div class="report-viewer fade-in">${html}</div>`;
+
+    <!-- Agent breakdown -->
+    <div class="section-card">
+      <div class="section-title">Agent Signal Breakdown</div>
+      ${agentRows || '<div style="color:#555;font-size:13px;">No agent data.</div>'}
+    </div>
+
+    <!-- Fusion weights -->
+    <div class="section-card">
+      <div class="section-title">Fusion Weights</div>
+      <div style="font-size:11px;color:#555;margin-bottom:14px;">
+        Quantum-inspired calibration (PennyLane — classical simulation only, no quantum hardware claimed)
+      </div>
+      ${weightRows || '<div style="color:#555;font-size:13px;">No weight data.</div>'}
+    </div>
+
+    <!-- Rationale -->
+    <div class="section-card">
+      <div class="section-title">Forensic Rationale</div>
+      <div class="rationale-text">${rationale.replace(/
+/g, '<br>')}</div>
+    </div>
+
+    <!-- Actions -->
+    <div class="action-row">
+      <button class="action-btn" onclick="downloadReport()">Download Report (JSON)</button>
+      <button class="action-btn" onclick="goUpload()">Analyse Another</button>
+    </div>
+
+    <div class="disclaimer">
+      <b>Important:</b> Deepfake detection is probabilistic. This tool is for forensic research
+      only and is not legally admissible evidence. False positives and negatives occur.
+    </div>
+  `;
+  show("results");
 }
 
 function downloadReport() {
-  if (!currentResult?.forensic_report) return;
-  const blob = new Blob([currentResult.forensic_report], {type: 'text/markdown'});
-  const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
-  a.download = `forensic_report_${currentFile?.name || 'sample'}.md`; a.click();
-}
-
-function downloadJson() {
-  if (!currentResult) return;
-  const blob = new Blob([JSON.stringify(currentResult, null, 2)], {type: 'application/json'});
-  const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
-  a.download = `obscuro_verdict_${currentFile?.name || 'sample'}.json`; a.click();
-}
-
-function showFeedback() {
-  const f = document.getElementById('feedbackForm');
-  f.style.display = f.style.display === 'none' ? 'block' : 'none';
-}
-
-async function submitFeedback() {
-  const gt = document.querySelector('input[name="gt"]:checked')?.value;
-  if (!gt || !currentHash) { showToast('Select real or fake first.', 'error'); return; }
-  const form = new FormData();
-  form.append('input_hash', currentHash);
-  form.append('ground_truth', gt);
-  const r = await fetch('/api/feedback', { method: 'POST', body: form });
-  if (r.ok) {
-    showToast(`Feedback recorded as "${gt}". Thank you.`, 'success');
-    document.getElementById('feedbackForm').style.display = 'none';
-  } else {
-    showToast('Feedback error: ' + (await r.text()).slice(0, 100), 'error');
-  }
-}
-
-// ─── Training ─────────────────────────────────────────────────────────────────
-async function startTraining() {
-  const epochs = parseInt(document.getElementById('trainEpochs').value) || 10;
-  const samples = parseInt(document.getElementById('trainSamples').value) || 100;
-  const lr = parseFloat(document.getElementById('trainLr').value) || 1e-4;
-
-  const r = await fetch('/api/train/start', {
-    method: 'POST',
-    headers: {'Content-Type':'application/json'},
-    body: JSON.stringify({epochs, samples_per_class: samples, lr})
-  });
-  const d = await r.json();
-  showToast(d.message || (d.started ? 'Training started.' : d.reason), d.started ? 'success' : 'error');
-  if (d.started) startTrainingPoll();
-}
-
-async function stopTraining() {
-  const r = await fetch('/api/train/stop', {method:'POST'});
-  const d = await r.json();
-  showToast(d.message, 'info');
-}
-
-async function loadTrainingStatus() {
-  const r = await fetch('/api/train/status');
-  const d = await r.json();
-  updateTrainingUI(d);
-  if (d.status === 'running' || d.status === 'starting') startTrainingPoll();
-}
-
-function startTrainingPoll() {
-  if (trainingPollTimer) return;
-  trainingPollTimer = setInterval(async () => {
-    const r = await fetch('/api/train/status');
-    const d = await r.json();
-    updateTrainingUI(d);
-    if (d.status !== 'running' && d.status !== 'starting') {
-      clearInterval(trainingPollTimer); trainingPollTimer = null;
-    }
-  }, 2000);
-}
-
-function updateTrainingUI(d) {
-  document.getElementById('trainStatus').textContent = d.status;
-  document.getElementById('trainEpochDisplay').textContent = d.total_epochs ? `${d.epoch}/${d.total_epochs}` : (d.epoch || '—');
-  document.getElementById('trainBestAcc').textContent = d.best_val_accuracy ? (d.best_val_accuracy * 100).toFixed(1) + '%' : '—';
-
-  const losses = d.train_loss || [];
-  const accs = d.val_accuracy || [];
-  if (losses.length) {
-    document.getElementById('trainLossVal').textContent = losses[losses.length-1].toFixed(4);
-    drawLineChart('lossChart', losses, 'var(--red)');
-  }
-  if (accs.length) {
-    document.getElementById('trainAccVal').textContent = (accs[accs.length-1] * 100).toFixed(1) + '%';
-    drawLineChart('accChart', accs.map(v => v * 100), 'var(--accent2)');
-  }
-
-  const log = document.getElementById('trainLog');
-  if (d.log?.length) {
-    log.innerHTML = d.log.slice(-40).map(l => `<div class="log-entry">${l}</div>`).join('');
-    log.scrollTop = log.scrollHeight;
-  }
-}
-
-async function loadLabelledCount() {
-  const r = await fetch('/api/stats');
-  const d = await r.json();
-  const lc = d.labelled_samples || {};
-  document.getElementById('labelledCount').innerHTML =
-    `<div class="grid-3">
-      <div class="metric-card"><div class="metric-val">${lc.fake || 0}</div><div class="metric-lbl">Labelled Fake</div></div>
-      <div class="metric-card"><div class="metric-val">${lc.real || 0}</div><div class="metric-lbl">Labelled Real</div></div>
-      <div class="metric-card"><div class="metric-val">${lc.total || 0}</div><div class="metric-lbl">Total Labelled</div></div>
-    </div>`;
-}
-
-// ─── Evolution ────────────────────────────────────────────────────────────────
-async function startEvolution() {
-  const gens = parseInt(document.getElementById('evolveGens').value) || 20;
-  const pop = parseInt(document.getElementById('evolvePopSize').value) || 10;
-  const r = await fetch('/api/evolve/start', {
-    method: 'POST', headers: {'Content-Type':'application/json'},
-    body: JSON.stringify({generations: gens, population_size: pop})
-  });
-  const d = await r.json();
-  showToast(d.message || (d.started ? 'Evolution started.' : d.reason), d.started ? 'success' : 'error');
-  if (d.started) startEvolutionPoll();
-}
-
-async function stopEvolution() {
-  const r = await fetch('/api/evolve/stop', {method:'POST'});
-  const d = await r.json();
-  showToast(d.message, 'info');
-}
-
-async function resetEvolution() {
-  const r = await fetch('/api/evolve/reset', {method:'POST'});
-  const d = await r.json();
-  showToast(d.message, 'success');
-  loadActiveConfig();
-}
-
-async function loadEvolutionStatus() {
-  const r = await fetch('/api/evolve/status');
-  const d = await r.json();
-  updateEvolutionUI(d);
-  if (d.status === 'running' || d.status === 'starting') startEvolutionPoll();
-}
-
-function startEvolutionPoll() {
-  if (evolutionPollTimer) return;
-  evolutionPollTimer = setInterval(async () => {
-    const r = await fetch('/api/evolve/status');
-    const d = await r.json();
-    updateEvolutionUI(d);
-    if (d.status !== 'running' && d.status !== 'starting') {
-      clearInterval(evolutionPollTimer); evolutionPollTimer = null;
-      loadActiveConfig();
-    }
-  }, 2000);
-}
-
-function updateEvolutionUI(d) {
-  document.getElementById('evolveStatus').textContent = d.status;
-  document.getElementById('evolveGen').textContent = d.total_generations ? `${d.generation}/${d.total_generations}` : (d.generation || '—');
-  document.getElementById('evolveBestF1').textContent = d.best_f1 ? d.best_f1.toFixed(3) : '—';
-  document.getElementById('evolveEvaluated').textContent = d.evaluated_configs || '—';
-
-  const log = document.getElementById('evolveLog');
-  if (d.log?.length) {
-    log.innerHTML = d.log.slice(-40).map(l => `<div class="log-entry">${l}</div>`).join('');
-    log.scrollTop = log.scrollHeight;
-  }
-
-  // Designed algorithms
-  const algos = d.designed_algorithms || [];
-  const algoEl = document.getElementById('designedAlgos');
-  if (algos.length) {
-    algoEl.innerHTML = algos.map(a => `
-      <div class="agent-card" style="margin-bottom:10px">
-        <div class="agent-name">${a.style || 'Custom'} — Gen ${a.generation}</div>
-        <div style="font-size:12px;color:var(--muted);margin-top:4px">${a.description}</div>
-        ${a.f1 ? `<div style="font-size:12px;color:var(--accent2);margin-top:4px">F1: ${a.f1.toFixed(3)}</div>` : ''}
-      </div>`).join('');
-  }
-
-  // Improvements
-  const improvements = d.improvements || [];
-  if (improvements.length) {
-    document.getElementById('improvementsCard').style.display = 'block';
-    document.getElementById('improvementsList').innerHTML = improvements.map(imp =>
-      `<div style="display:flex;gap:16px;align-items:center;padding:8px 0;border-bottom:1px solid var(--border)">
-        <div style="font-size:12px;color:var(--muted)">Gen ${imp.generation}</div>
-        <div style="color:var(--accent2);font-weight:600;font-family:var(--font)">F1: ${imp.f1}</div>
-        <div style="font-size:12px;color:var(--muted)">Acc: ${(imp.accuracy*100).toFixed(1)}% · P: ${imp.precision?.toFixed(3)} · R: ${imp.recall?.toFixed(3)}</div>
-      </div>`).join('');
-  }
-}
-
-async function loadActiveConfig() {
-  const r = await fetch('/api/evolve/config');
-  const d = await r.json();
-  const weights = d.weights || {};
-  const el = document.getElementById('activeWeights');
-  el.innerHTML = Object.entries(weights).map(([s, w]) => {
-    const name = s.replace(/_score$/, '').replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
-    return `<div class="weight-row">
-      <div class="weight-name">${name}</div>
-      <div class="weight-bar-wrap"><div class="weight-bar" style="width:${(w*100).toFixed(1)}%"></div></div>
-      <div class="weight-val">${(w*100).toFixed(1)}%</div>
-    </div>`;
-  }).join('') +
-  (d.thresholds ? `<div style="margin-top:14px;font-size:12px;color:var(--muted)">
-    Fake thresh: <strong>${d.thresholds.fake_threshold}</strong> · 
-    Real thresh: <strong>${d.thresholds.real_threshold}</strong> · 
-    Conf min: <strong>${d.thresholds.confidence_minimum}</strong>
-  </div>` : '');
-}
-
-// ─── Stats ────────────────────────────────────────────────────────────────────
-async function loadStats() {
-  const r = await fetch('/api/stats');
-  const d = await r.json();
-  const report = d.accuracy_report || {};
-  const recal = d.weight_recalibration;
-  const lc = d.labelled_samples || {};
-
-  let html = '';
-  if (report.accuracy !== undefined) {
-    html += `<div class="grid-4" style="margin-bottom:20px">
-      <div class="metric-card"><div class="metric-val" style="color:var(--accent2)">${(report.accuracy*100).toFixed(1)}%</div><div class="metric-lbl">Accuracy</div></div>
-      <div class="metric-card"><div class="metric-val">${(report.precision*100).toFixed(1)}%</div><div class="metric-lbl">Precision</div></div>
-      <div class="metric-card"><div class="metric-val">${(report.recall*100).toFixed(1)}%</div><div class="metric-lbl">Recall</div></div>
-      <div class="metric-card"><div class="metric-val" style="color:var(--purple)">${(report.f1*100).toFixed(1)}%</div><div class="metric-lbl">F1 Score</div></div>
-    </div>`;
-    if (report.degradation_flag) {
-      html += `<div style="background:rgba(248,81,73,0.1);border:1px solid var(--red);border-radius:8px;padding:14px;margin-bottom:18px;color:var(--red)">
-        ⚠️ <strong>DEGRADATION FLAG:</strong> Accuracy below 60% threshold. Recalibration recommended.
-      </div>`;
-    }
-  } else {
-    html += `<div class="card">
-      <p style="color:var(--muted)">${report.message || 'No accuracy data yet. Submit ground-truth labels via the Detect tab after running analyses.'}</p>
-      <p style="color:var(--muted); margin-top:10px">Total predictions: <strong>${report.total_predictions || 0}</strong> · Labelled: <strong>${report.labelled_predictions || 0}</strong></p>
-    </div>`;
-  }
-
-  html += `<div class="grid-3" style="margin-bottom:20px">
-    <div class="metric-card"><div class="metric-val">${lc.fake || 0}</div><div class="metric-lbl">Fake Labels</div></div>
-    <div class="metric-card"><div class="metric-val">${lc.real || 0}</div><div class="metric-lbl">Real Labels</div></div>
-    <div class="metric-card"><div class="metric-val">${lc.total || 0}</div><div class="metric-lbl">Total Labelled</div></div>
-  </div>`;
-
-  if (recal) {
-    html += `<div class="card"><div class="card-title">⚖️ Suggested Recalibration</div><pre style="font-size:11px;color:var(--muted);font-family:var(--font)">${JSON.stringify(recal, null, 2)}</pre></div>`;
-  }
-
-  document.getElementById('statsContent').innerHTML = html;
-}
-
-// ─── Canvas chart ─────────────────────────────────────────────────────────────
-function drawLineChart(canvasId, values, color) {
-  const canvas = document.getElementById(canvasId);
-  if (!canvas) return;
-  const ctx = canvas.getContext('2d');
-  const W = canvas.offsetWidth, H = canvas.offsetHeight;
-  canvas.width = W; canvas.height = H;
-  if (!values.length) return;
-
-  const min = Math.min(...values), max = Math.max(...values);
-  const range = (max - min) || 1;
-
-  ctx.clearRect(0, 0, W, H);
-  ctx.strokeStyle = color;
-  ctx.lineWidth = 2;
-  ctx.beginPath();
-
-  values.forEach((v, i) => {
-    const x = (i / Math.max(values.length - 1, 1)) * W;
-    const y = H - ((v - min) / range) * H * 0.85 - H * 0.075;
-    if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
-  });
-  ctx.stroke();
-
-  // Fill
-  ctx.lineTo(W, H); ctx.lineTo(0, H); ctx.closePath();
-  ctx.fillStyle = color + '22';
-  ctx.fill();
-}
-
-// ─── Toast ────────────────────────────────────────────────────────────────────
-function showToast(msg, type = 'info') {
-  const t = document.createElement('div');
-  t.className = `toast ${type}`;
-  t.textContent = msg;
-  document.body.appendChild(t);
-  setTimeout(() => t.remove(), 4000);
+  if (!lastResult) return;
+  const blob = new Blob([JSON.stringify(lastResult, null, 2)], {type: "application/json"});
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "obscuro_report_" + lastFilename + ".json";
+  a.click();
 }
 </script>
 </body>

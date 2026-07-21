@@ -1,57 +1,111 @@
 """
-Obscuro Deepimage — Streamlit frontend.
-
-Provides a drag-and-drop interface for image/video upload and displays:
-  - Verdict badge and probability meter
-  - Per-agent signal breakdown with confidence indicators
-  - Fusion weights (including quantum-inspired calibration note)
-  - Full structured forensic rationale
-  - System stats and accuracy tracker
-  - Model card and technical report tabs
+Obscuro Deepimage — Streamlit frontend (dark-themed, matches web UI aesthetic).
 """
 import os
 import json
-import time
-from pathlib import Path
+import hashlib
 from typing import Optional
 import streamlit as st
 import httpx
 
-# ─── Config ───────────────────────────────────────────────────────────────────
 API_URL = os.environ.get("API_URL", "http://localhost:8000")
+
 st.set_page_config(
     page_title="Obscuro Deepimage",
-    page_icon="🔍",
-    layout="wide",
-    initial_sidebar_state="expanded",
+    page_icon="⬡",
+    layout="centered",
+    initial_sidebar_state="collapsed",
 )
 
-# ─── Styles ───────────────────────────────────────────────────────────────────
+# ── Pixel-perfect CSS override ────────────────────────────────────────────────
 st.markdown("""
 <style>
-  .main-title { font-size: 2.4rem; font-weight: 800; letter-spacing: -1px; }
-  .subtitle   { font-size: 1.05rem; color: #6B7280; margin-bottom: 1.5rem; }
-  .verdict-fake  { background: #FEF2F2; border: 2px solid #EF4444;
-                   border-radius: 12px; padding: 1.2rem; text-align: center; }
-  .verdict-real  { background: #F0FDF4; border: 2px solid #22C55E;
-                   border-radius: 12px; padding: 1.2rem; text-align: center; }
-  .verdict-uncertain { background: #FFFBEB; border: 2px solid #F59E0B;
-                        border-radius: 12px; padding: 1.2rem; text-align: center; }
-  .verdict-label { font-size: 2rem; font-weight: 800; }
-  .agent-card { background: #F9FAFB; border: 1px solid #E5E7EB;
-                border-radius: 10px; padding: 0.9rem; margin: 0.5rem 0; }
-  .skipped    { opacity: 0.5; font-style: italic; }
-  .disclaimer { background: #FFF7ED; border-left: 4px solid #F59E0B;
-                padding: 0.8rem 1rem; font-size: 0.88rem; border-radius: 4px; }
-  .quantum-badge { background: #EDE9FE; border: 1px solid #8B5CF6;
-                   border-radius: 6px; padding: 0.25rem 0.6rem;
-                   font-size: 0.78rem; color: #6D28D9; font-weight: 600; }
+  /* Hide all Streamlit chrome */
+  #MainMenu, header, footer,
+  [data-testid="stToolbar"],
+  [data-testid="stDecoration"],
+  [data-testid="stStatusWidget"],
+  [data-testid="collapsedControl"],
+  .stDeployButton { display: none !important; }
+
+  /* Dark background */
+  html, body, [data-testid="stAppViewContainer"],
+  [data-testid="stMain"], .main, .block-container {
+    background-color: #0d0d0d !important;
+  }
+
+  /* Remove default padding */
+  .block-container {
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
+    max-width: 100% !important;
+  }
+
+  /* Base text */
+  body, p, span, div, label {
+    color: #aaaaaa;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  }
 </style>
 """, unsafe_allow_html=True)
 
+# ── Navbar ────────────────────────────────────────────────────────────────────
+LOGO_SVG = """
+<svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <circle cx="16" cy="16" r="14" fill="#383838"/>
+  <rect x="14.4" y="4.8" width="3.2" height="3.2" rx="0.6" fill="#909090"/>
+  <rect x="22.4" y="7.6" width="3.2" height="3.2" rx="0.6" fill="#909090"
+        transform="rotate(45 24 9.2)"/>
+  <rect x="23.8" y="14.4" width="3.2" height="3.2" rx="0.6" fill="#909090"/>
+  <rect x="22.4" y="21.2" width="3.2" height="3.2" rx="0.6" fill="#909090"
+        transform="rotate(-45 24 22.8)"/>
+  <rect x="14.4" y="24" width="3.2" height="3.2" rx="0.6" fill="#909090"/>
+  <rect x="6.4" y="21.2" width="3.2" height="3.2" rx="0.6" fill="#909090"
+        transform="rotate(45 8 22.8)"/>
+  <rect x="5" y="14.4" width="3.2" height="3.2" rx="0.6" fill="#909090"/>
+  <rect x="6.4" y="7.6" width="3.2" height="3.2" rx="0.6" fill="#909090"
+        transform="rotate(-45 8 9.2)"/>
+  <circle cx="16" cy="16" r="2.4" fill="#909090"/>
+</svg>"""
 
-# ─── Helper functions ─────────────────────────────────────────────────────────
+st.markdown(f"""
+<style>
+  .obs-navbar {{
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 18px 28px;
+    background: #0d0d0d;
+    position: sticky; top: 0; z-index: 100;
+  }}
+  .obs-brand {{ display: flex; align-items: center; gap: 10px; }}
+  .obs-brand-name {{ color: #fff; font-size: 15px; font-weight: 500; }}
+  .obs-hamburger {{ display: flex; flex-direction: column; gap: 5px; }}
+  .obs-hamburger span {{ display: block; width: 22px; height: 2.5px; background: #888; border-radius: 1px; }}
+</style>
+<div class="obs-navbar">
+  <div class="obs-brand">
+    {LOGO_SVG}
+    <span class="obs-brand-name">Obscuro</span>
+  </div>
+  <div class="obs-hamburger">
+    <span></span><span></span><span></span>
+  </div>
+</div>
+""", unsafe_allow_html=True)
 
+# ── Title ─────────────────────────────────────────────────────────────────────
+st.markdown("""
+<style>
+  .obs-title {
+    font-family: Georgia, "Times New Roman", Times, serif;
+    font-size: 52px; font-weight: 400; color: #7d7d7d;
+    text-align: center; margin: 28px 0 32px;
+    line-height: 1.1;
+  }
+</style>
+<h1 class="obs-title">Obscuro Deepimage</h1>
+""", unsafe_allow_html=True)
+
+# ── Helpers ───────────────────────────────────────────────────────────────────
 def call_analyse(file_bytes: bytes, filename: str) -> Optional[dict]:
     try:
         with httpx.Client(timeout=120.0) as client:
@@ -61,437 +115,267 @@ def call_analyse(file_bytes: bytes, filename: str) -> Optional[dict]:
             )
         if resp.status_code == 200:
             return resp.json()
-        else:
-            st.error(f"API error {resp.status_code}: {resp.text[:400]}")
-            return None
+        st.error(f"API error {resp.status_code}: {resp.text[:400]}")
+        return None
     except httpx.ConnectError:
-        st.error(
-            "⚠️ Cannot connect to the detection backend. "
-            "Make sure the API server is running (port 8000)."
-        )
+        st.error("Cannot connect to the detection backend (port 8000).")
         return None
     except Exception as exc:
         st.error(f"Request failed: {exc}")
         return None
 
-
-def get_stats() -> Optional[dict]:
-    try:
-        with httpx.Client(timeout=10.0) as client:
-            resp = client.get(f"{API_URL}/api/stats")
-        return resp.json() if resp.status_code == 200 else None
-    except Exception:
-        return None
-
+def score_color(s: float) -> str:
+    if s > 0.58: return "#f87171"
+    if s < 0.42: return "#6ee7b7"
+    return "#fbbf24"
 
 def render_verdict(result: dict):
     verdict = result.get("verdict", "UNCERTAIN")
-    prob = result.get("deepfake_probability", 0.5)
-    conf = result.get("confidence_in_verdict", 0.0)
-    media_type = result.get("media_type", "image")
+    prob    = result.get("deepfake_probability", 0.5)
+    conf    = result.get("confidence_in_verdict", 0.0)
+    media   = result.get("media_type", "image")
+    pt      = result.get("processing_time_s", 0)
 
-    # ── Verdict badge ────────────────────────────────────────────────────────
-    css_class = {
-        "LIKELY FAKE": "verdict-fake",
-        "LIKELY REAL": "verdict-real",
-        "UNCERTAIN":   "verdict-uncertain",
-    }.get(verdict, "verdict-uncertain")
+    vcolor  = {"LIKELY FAKE": "#f87171", "LIKELY REAL": "#6ee7b7"}.get(verdict, "#fbbf24")
 
-    emoji = {"LIKELY FAKE": "🚨", "LIKELY REAL": "✅", "UNCERTAIN": "⚠️"}.get(verdict, "❓")
-    st.markdown(
-        f'<div class="{css_class}">'
-        f'<div class="verdict-label">{emoji} {verdict}</div>'
-        f'<div style="font-size:1.1rem; margin-top:0.3rem;">'
-        f'Deepfake probability: <strong>{prob:.1%}</strong> | '
-        f'Verdict confidence: <strong>{conf:.0%}</strong> | '
-        f'Media: {media_type}'
-        f"</div></div>",
-        unsafe_allow_html=True,
-    )
+    st.markdown(f"""
+    <style>
+      .obs-verdict-card {{
+        background:#282828;border-radius:16px;padding:28px;
+        text-align:center;margin-bottom:16px;
+      }}
+      .obs-verdict-label {{
+        font-family:Georgia,serif;font-size:38px;font-weight:400;
+        color:{vcolor};margin-bottom:8px;
+      }}
+      .obs-verdict-meta {{ color:#888;font-size:14px;line-height:1.8; }}
+      .obs-verdict-meta b {{ color:#ccc; }}
+      .obs-prob-track {{
+        margin:16px auto 4px;max-width:400px;
+        background:#1c1c1c;border-radius:6px;height:6px;overflow:hidden;
+      }}
+      .obs-prob-fill {{
+        height:100%;border-radius:6px;background:{score_color(prob)};
+        width:{prob*100:.1f}%;
+      }}
+      .obs-prob-legend {{ font-size:11px;color:#555;text-align:center; }}
+    </style>
+    <div class="obs-verdict-card">
+      <div class="obs-verdict-label">{verdict}</div>
+      <div class="obs-verdict-meta">
+        Deepfake probability: <b>{prob:.1%}</b> &nbsp;·&nbsp;
+        Verdict confidence: <b>{conf:.0%}</b> &nbsp;·&nbsp;
+        {media} &nbsp;·&nbsp; {pt:.2f}s
+      </div>
+      <div class="obs-prob-track"><div class="obs-prob-fill"></div></div>
+      <div class="obs-prob-legend">{prob*100:.1f}% deepfake probability</div>
+    </div>
+    """, unsafe_allow_html=True)
 
-    proc_time = result.get("processing_time_s", 0)
-    st.caption(f"⏱ Analysis completed in {proc_time:.2f}s")
-
-    # ── Warnings ─────────────────────────────────────────────────────────────
     for w in result.get("warnings", []):
         st.warning(w)
 
-    st.divider()
+    # ── Agent breakdown ──────────────────────────────────────────────────────
+    agents  = result.get("agent_results", [])
+    weights = result.get("fusion_weights", {})
 
-    # ── Agent breakdown ───────────────────────────────────────────────────────
-    col1, col2 = st.columns([3, 2])
+    if agents:
+        st.markdown("""
+        <style>
+          .obs-section {{ background:#282828;border-radius:16px;padding:22px 24px;margin-bottom:14px; }}
+          .obs-section-title {{ font-family:Georgia,serif;font-size:17px;color:#888;
+                                margin-bottom:16px;font-weight:400; }}
+          .obs-agent-row {{ display:flex;align-items:center;gap:12px;
+                            padding:9px 0;border-bottom:1px solid #1e1e1e; }}
+          .obs-agent-row:last-child {{ border-bottom:none; }}
+          .obs-agent-name {{ flex:1;font-size:13px;color:#999; }}
+          .obs-bar-wrap {{ width:120px;height:4px;background:#1c1c1c;
+                           border-radius:2px;overflow:hidden; }}
+          .obs-bar-fill {{ height:100%;border-radius:2px; }}
+          .obs-score-val {{ font-size:12px;color:#666;width:44px;text-align:right; }}
+        </style>
+        """, unsafe_allow_html=True)
 
-    with col1:
-        st.subheader("📊 Agent Signal Breakdown")
-        fusion_weights = result.get("fusion_weights", {})
-        for ar in result.get("agent_results", []):
-            name = ar.get("agent_name", "Agent")
-            score = ar.get("score", 0.5)
-            conf_a = ar.get("confidence", 0.0)
-            ran = ar.get("ran", True)
-            signal = ar.get("signal_name", "")
-            weight = fusion_weights.get(signal, 0.0)
-
+        rows_html = ""
+        for a in agents:
+            name  = a.get("agent_name", "Agent")
+            ran   = a.get("ran", True)
+            score = a.get("score", 0.5)
+            color = score_color(score)
             if not ran:
-                st.markdown(
-                    f'<div class="agent-card skipped">⏭ <strong>{name}</strong>'
-                    f' — {ar.get("skipped_reason", "Skipped")}</div>',
-                    unsafe_allow_html=True,
+                rows_html += f'<div class="obs-agent-row"><span class="obs-agent-name" style="opacity:.4;font-style:italic">{name} — skipped</span></div>'
+            else:
+                rows_html += (
+                    f'<div class="obs-agent-row">'
+                    f'<span class="obs-agent-name">{name}</span>'
+                    f'<div class="obs-bar-wrap"><div class="obs-bar-fill" style="width:{score*100:.0f}%;background:{color}"></div></div>'
+                    f'<span class="obs-score-val">{score*100:.1f}%</span>'
+                    f'</div>'
                 )
-                continue
 
-            color = "#EF4444" if score > 0.55 else ("#22C55E" if score < 0.45 else "#F59E0B")
-            direction = "🔴 FAKE signal" if score > 0.55 else ("🟢 REAL signal" if score < 0.45 else "🟡 Neutral")
+        weight_rows = ""
+        for sig, w in weights.items():
+            label = sig.replace("_score","").replace("_"," ").title()
+            weight_rows += (
+                f'<div class="obs-agent-row">'
+                f'<span class="obs-agent-name">{label}</span>'
+                f'<div class="obs-bar-wrap"><div class="obs-bar-fill" style="width:{w*100:.0f}%;background:#7d7d7d"></div></div>'
+                f'<span class="obs-score-val">{w*100:.0f}%</span>'
+                f'</div>'
+            )
 
-            with st.expander(f"{name}  |  score: {score:.2f}  |  weight: {weight:.0%}"):
-                c1, c2, c3 = st.columns(3)
-                c1.metric("Score", f"{score:.3f}", delta=f"{direction}")
-                c2.metric("Agent Confidence", f"{conf_a:.0%}")
-                c3.metric("Fusion Weight", f"{weight:.0%}")
+        st.markdown(f"""
+        <div class="obs-section">
+          <div class="obs-section-title">Agent Signal Breakdown</div>
+          {rows_html}
+        </div>
+        <div class="obs-section">
+          <div class="obs-section-title">Fusion Weights</div>
+          <div style="font-size:11px;color:#555;margin-bottom:12px;">
+            Quantum-inspired calibration (PennyLane — classical simulation only)
+          </div>
+          {weight_rows}
+        </div>
+        """, unsafe_allow_html=True)
 
-                st.progress(score, text=f"Fake signal strength: {score:.1%}")
+    # ── Rationale ────────────────────────────────────────────────────────────
+    rationale = result.get("rationale", "")
+    if rationale:
+        st.markdown(f"""
+        <div class="obs-section">
+          <div class="obs-section-title">Forensic Rationale</div>
+          <div style="font-size:14px;color:#888;line-height:1.8;">{rationale.replace(chr(10),'<br>')}</div>
+        </div>
+        """, unsafe_allow_html=True)
 
-                details = ar.get("details", {})
-                if details:
-                    with st.container():
-                        for k, v in details.items():
-                            if k not in ("note", "caveat", "error"):
-                                st.text(f"  {k}: {v}")
-                        if "note" in details:
-                            st.info(f"ℹ️ {details['note']}")
-                        if "caveat" in details:
-                            st.warning(f"⚠️ {details['caveat']}")
-                        if "error" in details:
-                            st.error(f"Error: {details['error']}")
-
-    with col2:
-        st.subheader("⚖️ Fusion Weights")
-        st.markdown(
-            '<span class="quantum-badge">🔬 Experimental: quantum-inspired calibration (PennyLane, classical simulation)</span>',
-            unsafe_allow_html=True,
-        )
-        st.caption(
-            "Weights adjusted by a variational quantum circuit simulated on CPU. "
-            "No quantum hardware advantage is claimed — this is a research exploration only."
-        )
-        st.write("")
-        for signal, w in fusion_weights.items():
-            readable = signal.replace("_score", "").replace("_", " ").title()
-            st.progress(float(w), text=f"{readable}: {w:.1%}")
-
-        st.write("")
-        st.subheader("📝 Probability Meter")
-        st.progress(float(prob))
-        st.caption(
-            f"{'High confidence FAKE' if prob > 0.75 else 'Leaning FAKE' if prob > 0.55 else 'Leaning REAL' if prob < 0.45 else 'Low confidence FAKE' if prob < 0.25 else 'Inconclusive'}"
-        )
-
-    st.divider()
-
-    # ── Rationale ─────────────────────────────────────────────────────────────
-    st.subheader("🔎 Forensic Rationale")
-    st.markdown(result.get("rationale", "No rationale available."))
-
-    st.divider()
-
-    # ── Disclaimer ────────────────────────────────────────────────────────────
-    st.markdown(
-        '<div class="disclaimer">'
-        "<strong>Important:</strong> Deepfake detection is probabilistic. "
-        "This tool is intended for forensic research purposes and is <em>not</em> "
-        "legally admissible evidence. False positives and false negatives occur. "
-        "Do not rely on this output alone for consequential decisions."
-        "</div>",
-        unsafe_allow_html=True,
+    # ── Download ─────────────────────────────────────────────────────────────
+    st.download_button(
+        label="Download Report (JSON)",
+        data=json.dumps(result, indent=2),
+        file_name=f"obscuro_report.json",
+        mime="application/json",
     )
 
-
-def render_model_card():
     st.markdown("""
-## 📄 Model Card — Obscuro Deepimage v1.0
-
-### Intended Use
-Forensic research and media authenticity assessment. Designed to assist analysts
-in identifying potentially synthetic or manipulated imagery and video.
-**Not intended for** legally binding determinations, surveillance, or use against
-individuals without their knowledge.
-
-### Training Data & Model Origins
-| Agent | Model | Training Data |
-|---|---|---|
-| Spatial Forensics | ViT (dima806/deepfake_vs_real_image_detection) | Mixed real/fake dataset (faces) |
-| Spatial Fallback | EfficientNet-B4 (timm) | ImageNet-1K (not fine-tuned on deepfakes) |
-| Frequency Analysis | Signal-processing heuristics | No training required |
-| Temporal Analysis | Optical flow + Haar cascades (OpenCV) | No training required |
-| Biological Signal | CHROM rPPG algorithm | No training required |
-| Audio-Visual Sync | Cross-correlation heuristic | No training required |
-| Fusion Agent | Confidence-weighted ensemble + PennyLane circuit | Adaptive (logs) |
-
-### Known Limitations & Generalisation Gaps
-- **Generation method overfitting**: Detectors trained on GAN outputs may not generalise to diffusion-model fakes
-  (Stable Diffusion, DALL-E 3, Midjourney). The frequency analysis module attempts to address this
-  with diffusion-specific channel correlation checks, but performance on newest generators is unvalidated.
-- **Compression robustness**: Heavy JPEG/H.264 compression degrades frequency and spatial signals.
-  Performance drops significantly at JPEG quality < 50.
-- **Resolution dependence**: Biological signal (rPPG) and temporal analysis require ≥480p video at ≥15fps.
-  Low-resolution inputs receive lower-confidence scores.
-- **Face detection failure**: No face detected → full-image analysis, which is less accurate.
-- **Calibration**: Without fine-tuning on labelled deepfake datasets, the timm EfficientNet fallback
-  outputs uncalibrated probabilities. The system explicitly labels this in verdicts.
-- **Adversarial examples**: A sophisticated adversary who knows this system's detection signals could
-  craft inputs that evade detection. This tool should not be the sole line of defence.
-
-### Misuse Risks
-- **False accusations**: Do not use this tool to publicly accuse individuals of creating deepfakes
-  based solely on this output.
-- **Chilling effect**: Probabilistic false positives on authentic media could suppress legitimate content.
-- **Arms race dynamics**: Detection signal descriptions are intentionally kept at a level that does not
-  constitute a "how to evade detection" checklist.
-
-### Evaluation Status
-Without access to labelled benchmark data (FaceForensics++, DFDC require registration),
-production accuracy metrics are not available for this deployment. The Self-Improvement Agent
-will compute accuracy, precision, recall, F1, and AUC once labelled feedback is submitted.
-
-### Version & Date
-v1.0.0 — July 2026
-""")
+    <div style="background:#1a1610;border-left:3px solid #6b4a10;border-radius:8px;
+                padding:12px 16px;font-size:12px;color:#777;line-height:1.7;margin-top:12px;">
+      <b>Important:</b> Deepfake detection is probabilistic. This tool is for forensic research
+      only and is <em>not</em> legally admissible evidence.
+    </div>
+    """, unsafe_allow_html=True)
 
 
-def render_technical_report():
-    st.markdown("""
-## 📚 Technical Research Summary — Deepfake Detection (2024-2026 SOTA)
+# ── Upload card ───────────────────────────────────────────────────────────────
+import base64
+from pathlib import Path
 
-### Executive Summary
-Deepfake detection is an active arms race. As of 2025-2026, the threat landscape has shifted
-significantly from GAN-based face swaps to diffusion-model-generated imagery, requiring updated
-detector strategies. Below is a synthesis of current approaches and their trade-offs.
+cursor_path = Path(__file__).parent.parent / "app" / "static" / "cursor.png"
+cursor_b64 = ""
+if cursor_path.exists():
+    cursor_b64 = base64.b64encode(cursor_path.read_bytes()).decode()
 
----
+st.markdown(f"""
+<style>
+  /* Style the Streamlit file uploader to look like the design card */
+  [data-testid="stFileUploader"] {{
+    background: #282828;
+    border-radius: 20px;
+    padding: 28px 36px 24px;
+    border: none;
+    max-width: 318px;
+    margin: 0 auto 32px;
+  }}
+  [data-testid="stFileUploader"] section {{
+    border: none !important;
+    background: transparent !important;
+    padding: 0 !important;
+  }}
+  [data-testid="stFileUploader"] section > div {{
+    background: transparent !important;
+    border: none !important;
+  }}
+  [data-testid="stFileUploaderDropzoneInstructions"] {{
+    display: none !important;
+  }}
+  [data-testid="stFileDropzoneInstructions"] {{ display: none !important; }}
+  /* Upload button */
+  [data-testid="stFileUploader"] button,
+  [data-testid="stBaseButton-secondary"] {{
+    background: #1c1c1c !important;
+    color: #aaa !important;
+    border: none !important;
+    border-radius: 8px !important;
+    font-size: 13px !important;
+    width: 100% !important;
+  }}
+  [data-testid="stFileUploader"] button:hover {{
+    background: #252525 !important;
+    color: #ccc !important;
+  }}
+</style>
 
-### 1. Spatial / Pixel-Level Detection
-**Current SOTA**: Vision Transformer (ViT) and hybrid CNN-ViT architectures outperform
-pure CNNs on cross-dataset generalisation.
+<!-- Custom card layout above the file uploader -->
+<div style="display:flex;flex-direction:column;align-items:center;
+            background:#282828;border-radius:20px;padding:28px 36px 16px;
+            max-width:318px;margin:0 auto 0;">
+  <div style="font-family:Georgia,'Times New Roman',serif;font-size:30px;
+              font-weight:400;color:#fff;margin-bottom:14px;">Drag &amp; Drop</div>
+  {"<img src='data:image/png;base64," + cursor_b64 + "' style='width:92px;height:92px;object-fit:contain;image-rendering:pixelated;margin-bottom:20px;display:block;' draggable='false'/>" if cursor_b64 else ""}
+</div>
+""", unsafe_allow_html=True)
 
-- **Key models**: CLIP-based detectors (UniFD, 2023), LSDA (Large-Scale Deepfake Analysis),
-  Xception-based networks remain competitive on face swap benchmarks.
-- **Limitation**: Heavily overfit to training distribution. A model trained on ProGAN fakes
-  achieves ~98% AUC on that set but drops to 50-65% on DALL-E 3 or Stable Diffusion outputs.
+uploaded = st.file_uploader(
+    "",
+    type=["jpg", "jpeg", "png", "webp", "bmp", "mp4", "avi", "mov", "mkv"],
+    label_visibility="collapsed",
+)
 
-### 2. Frequency-Domain Analysis
-**Current SOTA**: Spectral peak detection (Frank et al., ICML 2020) works well for GAN outputs
-but is weaker against diffusion models that don't use periodic upsampling.
+if uploaded is not None:
+    file_bytes = uploaded.read()
+    filename   = uploaded.name
+    size_mb    = len(file_bytes) / 1024 / 1024
 
-- **Diffusion-specific frequency signatures** (Corvi et al., ICASSP 2023): focus on mid-frequency
-  noise patterns and cross-channel correlation rather than spectral peaks.
-- **DCT coefficient distribution**: Real JPEG images have a characteristic Laplacian distribution
-  with quantisation nulls; synthetics often have smoother or anomalous distributions.
+    is_image = any(filename.lower().endswith(e)
+                   for e in [".jpg", ".jpeg", ".png", ".webp", ".bmp"])
 
-### 3. Temporal Consistency (Video)
-- **Optical flow irregularity**: Face-swap deepfakes can introduce frame-to-frame jitter at blending boundaries.
-- **Blink rate analysis**: Deepfakes often exhibit zero or abnormal blink rates due to training data biases
-  (Li et al., CVPR 2018 — this gap has been partially closed in newer generators).
-- **Biological signal (rPPG)**: Absence of physiological heartbeat signal in face ROI.
-  Sensitive but noisy in short clips. Best combined with other signals.
-
-### 4. Audio-Visual Coherence
-- **SyncNet-based detection**: Cross-modal synchronisation check between lip landmarks and speech audio.
-- **Limitation**: Works well for talking-head deepfakes but not for image-only or silent-video fakes.
-
-### 5. Benchmark Datasets (Access Requirements)
-| Dataset | Generation Types Covered | Access |
-|---|---|---|
-| FaceForensics++ | NeuralTextures, Deepfakes, Face2Face, FaceSwap | Public (registration) |
-| DFDC | Multiple generators | Kaggle competition |
-| Celeb-DF v2 | Face swaps | Public |
-| DeeperForensics-1.0 | Face swap + perturbations | Public (registration) |
-| WildDeepfake | In-the-wild | Public |
-| **Gap**: | Diffusion-model fakes (SD, DALL-E) | No large public benchmark yet |
-
-### 6. The Generalisation Challenge
-The core unsolved problem: detectors trained on generation method A overfit and fail on
-method B. Proposed mitigations:
-- **Foundation model features**: Using CLIP, DINO, or similar large pretrained encoders as
-  feature extractors produces more transferable representations.
-- **Frequency augmentation**: Training with diverse frequency perturbations improves robustness.
-- **Ensemble approaches**: Multiple independent signals with uncertainty quantification
-  (the architecture Obscuro Deepimage implements) provide more reliable cross-distribution estimates.
-
-### 7. Quantum-Inspired Module
-The fusion weight optimisation step uses a PennyLane variational quantum circuit as a classical
-simulation. **Honest assessment**: there is no peer-reviewed evidence of quantum ML outperforming
-classical methods for deepfake detection. This module is implemented as a research exploration
-of variational quantum circuits for ensemble meta-learning, not a performance claim. All circuits
-run on CPU simulation; no quantum hardware is used.
-
----
-
-*References: Frank et al. (2020), Li et al. (2018, 2020), Rossler et al. (2019 — FF++),
-Corvi et al. (2023), Ojha et al. (2023 — UniFD), Tan et al. (2024).*
-""")
-
-
-# ─── Main app layout ───────────────────────────────────────────────────────────
-
-def main():
-    # Sidebar
-    with st.sidebar:
-        st.markdown("## 🔍 Obscuro Deepimage")
-        st.markdown("*Agentic Multi-Modal Deepfake Detection*")
-        st.divider()
-        st.markdown("**Specialist agents:**")
-        st.markdown("- 🖼️ Spatial Forensics (ViT/EfficientNet)")
-        st.markdown("- 📡 Frequency Analysis (FFT/DCT)")
-        st.markdown("- 🎬 Temporal Consistency (video)")
-        st.markdown("- 💓 Biological Signal rPPG (video)")
-        st.markdown("- 🎙️ Audio-Visual Sync (video)")
-        st.markdown("- ⚛️ Quantum-inspired Fusion")
-        st.divider()
-
-        # System health check
-        st.markdown("**System status:**")
-        try:
-            with httpx.Client(timeout=3.0) as client:
-                h = client.get(f"{API_URL}/api/health")
-            if h.status_code == 200:
-                data = h.json()
-                st.success("✅ API backend: online")
-                if data.get("models_loaded"):
-                    st.success("✅ ML models: loaded")
-                else:
-                    st.warning("⚠️ ML models: loading or partial")
-            else:
-                st.error("❌ API backend: error")
-        except Exception:
-            st.error("❌ API backend: offline")
-
-        st.divider()
-        st.caption(
-            "⚠️ This tool is for forensic research only. "
-            "Output is probabilistic and not legally admissible."
-        )
-
-    # Main area tabs
-    tab_detect, tab_stats, tab_card, tab_report = st.tabs([
-        "🔍 Detect", "📈 Stats & Calibration", "📄 Model Card", "📚 Technical Report"
-    ])
-
-    with tab_detect:
-        st.markdown('<div class="main-title">🔍 Obscuro Deepimage</div>', unsafe_allow_html=True)
-        st.markdown(
-            '<div class="subtitle">Agentic Multi-Modal Deepfake Detection System — '
-            'upload an image or video to receive a multi-signal forensic verdict.</div>',
-            unsafe_allow_html=True,
-        )
-
-        uploaded = st.file_uploader(
-            "Upload image or video",
-            type=["jpg", "jpeg", "png", "webp", "bmp", "mp4", "avi", "mov", "mkv"],
-            help="Images: JPG, PNG, WebP, BMP. Video: MP4, AVI, MOV (max 100MB).",
-        )
-
-        if uploaded is not None:
-            file_bytes = uploaded.read()
-            filename = uploaded.name
-            size_mb = len(file_bytes) / (1024 * 1024)
-
-            col_prev, col_meta = st.columns([1, 2])
-            with col_prev:
-                if any(filename.lower().endswith(ext) for ext in [".jpg", ".jpeg", ".png", ".webp", ".bmp"]):
-                    st.image(file_bytes, caption=f"{filename} ({size_mb:.1f}MB)", use_container_width=True)
-                else:
-                    st.video(file_bytes)
-                    st.caption(f"{filename} ({size_mb:.1f}MB)")
-
-            with col_meta:
-                st.markdown(f"**Filename:** `{filename}`")
-                st.markdown(f"**Size:** {size_mb:.2f} MB")
-                st.markdown(f"**Type:** {'Video' if any(filename.lower().endswith(e) for e in ['.mp4', '.avi', '.mov', '.mkv']) else 'Image'}")
-
-            if st.button("🔬 Run Forensic Analysis", type="primary", use_container_width=True):
-                with st.spinner("Running multi-agent forensic analysis..."):
-                    result = call_analyse(file_bytes, filename)
-
-                if result:
-                    st.success("Analysis complete.")
-                    render_verdict(result)
-
-                    # Download report
-                    report_json = json.dumps(result, indent=2)
-                    st.download_button(
-                        label="📥 Download Forensic Report (JSON)",
-                        data=report_json,
-                        file_name=f"obscuro_report_{filename}.json",
-                        mime="application/json",
-                    )
-
-                    # Feedback form
-                    with st.expander("📬 Submit Ground Truth (helps self-improvement agent)"):
-                        st.markdown(
-                            "Know the true label for this sample? Submitting it helps the "
-                            "system recalibrate its fusion weights over time."
-                        )
-                        input_hash = result.get("_hash", "")
-                        # Compute hash client-side
-                        import hashlib
-                        client_hash = hashlib.sha256(file_bytes).hexdigest()[:16]
-                        gt = st.radio("Ground truth:", ["fake", "real"], horizontal=True)
-                        if st.button("Submit feedback"):
-                            try:
-                                with httpx.Client(timeout=5.0) as client:
-                                    fb_resp = client.post(
-                                        f"{API_URL}/api/feedback",
-                                        data={"input_hash": client_hash, "ground_truth": gt},
-                                    )
-                                if fb_resp.status_code == 200:
-                                    st.success("Feedback recorded. Thank you.")
-                                else:
-                                    st.error(f"Feedback error: {fb_resp.text[:200]}")
-                            except Exception as exc:
-                                st.error(f"Could not submit feedback: {exc}")
-
-    with tab_stats:
-        st.markdown("## 📈 Accuracy & Calibration Dashboard")
-        st.markdown(
-            "This tab shows the Self-Improvement Agent's accuracy metrics, computed from "
-            "labelled predictions submitted via the feedback form."
-        )
-        if st.button("🔄 Refresh Stats"):
-            pass  # Re-runs the tab
-        stats = get_stats()
-        if stats:
-            report = stats.get("accuracy_report", {})
-            if "accuracy" in report:
-                cols = st.columns(4)
-                cols[0].metric("Accuracy", f"{report['accuracy']:.1%}")
-                cols[1].metric("Precision", f"{report['precision']:.1%}")
-                cols[2].metric("Recall", f"{report['recall']:.1%}")
-                cols[3].metric("F1", f"{report['f1']:.1%}")
-                if report.get("degradation_flag"):
-                    st.error(
-                        "⚠️ DEGRADATION FLAG: Accuracy below threshold. "
-                        "Recalibration recommended."
-                    )
-            else:
-                st.info(report.get("message", "No stats available yet."))
-                st.markdown(
-                    f"**Total predictions logged:** {report.get('total_predictions', 0)}  \n"
-                    f"**Labelled predictions:** {report.get('labelled_predictions', 0)}"
-                )
-
-            recal = stats.get("weight_recalibration")
-            if recal:
-                st.markdown("### Suggested Weight Recalibration")
-                st.json(recal)
+    col_prev, col_meta = st.columns([1, 2])
+    with col_prev:
+        if is_image:
+            st.image(file_bytes, use_container_width=True)
         else:
-            st.warning("Could not retrieve stats. Is the API backend running?")
+            st.video(file_bytes)
+    with col_meta:
+        st.markdown(f"""
+        <div style="padding-top:8px;">
+          <p style="font-size:13px;color:#888;line-height:1.9;">
+            <b style="color:#bbb">File</b> {filename}<br>
+            <b style="color:#bbb">Size</b> {size_mb:.2f} MB<br>
+            <b style="color:#bbb">Type</b> {'Image' if is_image else 'Video'}
+          </p>
+        </div>
+        """, unsafe_allow_html=True)
 
-    with tab_card:
-        render_model_card()
+    st.markdown('<div style="height:16px;"></div>', unsafe_allow_html=True)
 
-    with tab_report:
-        render_technical_report()
+    # Styled analyse button
+    st.markdown("""
+    <style>
+      [data-testid="stBaseButton-primary"] {
+        background: #282828 !important;
+        color: #aaa !important;
+        border: 1px solid #333 !important;
+        border-radius: 8px !important;
+        font-size: 13px !important;
+      }
+      [data-testid="stBaseButton-primary"]:hover {
+        background: #333 !important;
+        color: #ddd !important;
+      }
+    </style>
+    """, unsafe_allow_html=True)
 
-
-if __name__ == "__main__":
-    main()
+    if st.button("Run Forensic Analysis", type="primary", use_container_width=True):
+        with st.spinner("Running multi-agent forensic analysis…"):
+            result = call_analyse(file_bytes, filename)
+        if result:
+            render_verdict(result)
