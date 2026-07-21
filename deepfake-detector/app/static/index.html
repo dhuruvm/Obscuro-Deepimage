@@ -1,0 +1,1130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Obscuro Deepimage — Forensic Specialist</title>
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<style>
+:root {
+  --bg: #0a0c10;
+  --surface: #111318;
+  --card: #161b22;
+  --border: #21262d;
+  --accent: #58a6ff;
+  --accent2: #3fb950;
+  --red: #f85149;
+  --yellow: #e3b341;
+  --purple: #a371f7;
+  --text: #e6edf3;
+  --muted: #8b949e;
+  --muted2: #484f58;
+  --font: 'SF Mono', 'Cascadia Code', 'Fira Code', monospace;
+  --sans: system-ui, -apple-system, sans-serif;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: var(--bg); color: var(--text); font-family: var(--sans); font-size: 14px; min-height: 100vh; }
+a { color: var(--accent); text-decoration: none; }
+
+/* Layout */
+.layout { display: flex; min-height: 100vh; }
+.sidebar { width: 260px; min-width: 220px; background: var(--surface); border-right: 1px solid var(--border); display: flex; flex-direction: column; position: fixed; height: 100vh; overflow-y: auto; z-index: 10; }
+.main { margin-left: 260px; flex: 1; display: flex; flex-direction: column; min-height: 100vh; }
+
+/* Sidebar */
+.sidebar-logo { padding: 20px 18px 14px; border-bottom: 1px solid var(--border); }
+.sidebar-logo h1 { font-size: 16px; font-weight: 700; letter-spacing: -0.3px; color: var(--text); }
+.sidebar-logo p { font-size: 11px; color: var(--muted); margin-top: 2px; }
+.sidebar-logo .version { display: inline-block; background: var(--card); border: 1px solid var(--border); border-radius: 4px; padding: 1px 6px; font-size: 10px; color: var(--muted); font-family: var(--font); margin-top: 6px; }
+
+.sidebar-section { padding: 14px 14px 8px; }
+.sidebar-section-title { font-size: 10px; font-weight: 600; color: var(--muted2); text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 8px; }
+
+.nav-item { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 6px; cursor: pointer; color: var(--muted); transition: all 0.15s; font-size: 13px; }
+.nav-item:hover { background: var(--card); color: var(--text); }
+.nav-item.active { background: rgba(88,166,255,0.12); color: var(--accent); }
+.nav-item .icon { font-size: 15px; width: 18px; text-align: center; }
+
+.status-dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; margin-right: 6px; }
+.dot-green { background: var(--accent2); box-shadow: 0 0 6px var(--accent2); }
+.dot-red { background: var(--red); }
+.dot-yellow { background: var(--yellow); animation: pulse 1.5s infinite; }
+.dot-gray { background: var(--muted2); }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+.status-item { display: flex; align-items: center; font-size: 12px; color: var(--muted); padding: 4px 0; }
+.status-item strong { color: var(--text); }
+
+.sidebar-footer { margin-top: auto; padding: 14px; border-top: 1px solid var(--border); font-size: 11px; color: var(--muted2); }
+
+/* Top bar */
+.topbar { background: var(--surface); border-bottom: 1px solid var(--border); padding: 14px 28px; display: flex; align-items: center; justify-content: space-between; }
+.topbar-title { font-size: 15px; font-weight: 600; }
+.topbar-sub { font-size: 12px; color: var(--muted); }
+.topbar-right { display: flex; align-items: center; gap: 10px; }
+
+/* Tab content */
+.content { padding: 28px; flex: 1; }
+.tab-panel { display: none; }
+.tab-panel.active { display: block; }
+
+/* Cards */
+.card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 20px; margin-bottom: 18px; }
+.card-title { font-size: 13px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
+.card-title .icon { font-size: 16px; }
+
+/* Grid */
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+.grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+.grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
+
+/* Upload zone */
+.upload-zone { border: 2px dashed var(--border); border-radius: 12px; padding: 50px 30px; text-align: center; cursor: pointer; transition: all 0.2s; }
+.upload-zone:hover, .upload-zone.drag-over { border-color: var(--accent); background: rgba(88,166,255,0.04); }
+.upload-zone .icon { font-size: 40px; margin-bottom: 14px; }
+.upload-zone h3 { font-size: 16px; color: var(--text); margin-bottom: 6px; }
+.upload-zone p { color: var(--muted); font-size: 13px; }
+.upload-zone .formats { margin-top: 10px; display: flex; gap: 6px; justify-content: center; flex-wrap: wrap; }
+.format-badge { background: var(--surface); border: 1px solid var(--border); border-radius: 4px; padding: 2px 8px; font-size: 11px; color: var(--muted); font-family: var(--font); }
+
+/* Buttons */
+.btn { display: inline-flex; align-items: center; gap: 7px; padding: 9px 18px; border-radius: 7px; font-size: 13px; font-weight: 600; cursor: pointer; border: none; transition: all 0.15s; }
+.btn-primary { background: var(--accent); color: #000; }
+.btn-primary:hover { background: #79c0ff; }
+.btn-primary:disabled { opacity: 0.4; cursor: not-allowed; }
+.btn-success { background: var(--accent2); color: #000; }
+.btn-success:hover { background: #56d364; }
+.btn-danger { background: var(--red); color: #fff; }
+.btn-danger:hover { opacity: 0.85; }
+.btn-ghost { background: transparent; border: 1px solid var(--border); color: var(--text); }
+.btn-ghost:hover { background: var(--card); }
+.btn-sm { padding: 6px 12px; font-size: 12px; }
+.btn-purple { background: var(--purple); color: #000; }
+.btn-purple:hover { opacity: 0.85; }
+
+/* Verdict badges */
+.verdict-badge { padding: 18px 24px; border-radius: 10px; text-align: center; margin-bottom: 20px; }
+.verdict-fake { background: rgba(248,81,73,0.12); border: 2px solid var(--red); }
+.verdict-real { background: rgba(63,185,80,0.12); border: 2px solid var(--accent2); }
+.verdict-uncertain { background: rgba(227,179,65,0.12); border: 2px solid var(--yellow); }
+.verdict-label { font-size: 26px; font-weight: 800; margin-bottom: 8px; letter-spacing: -0.5px; }
+.verdict-fake .verdict-label { color: var(--red); }
+.verdict-real .verdict-label { color: var(--accent2); }
+.verdict-uncertain .verdict-label { color: var(--yellow); }
+.verdict-meta { display: flex; gap: 20px; justify-content: center; flex-wrap: wrap; margin-top: 10px; }
+.verdict-meta-item { text-align: center; }
+.verdict-meta-item .val { font-size: 22px; font-weight: 700; font-family: var(--font); }
+.verdict-meta-item .lbl { font-size: 11px; color: var(--muted); margin-top: 2px; }
+
+/* Progress bars */
+.progress-bar-wrap { background: var(--border); border-radius: 4px; height: 6px; margin: 6px 0; overflow: hidden; }
+.progress-bar { height: 100%; border-radius: 4px; transition: width 0.5s ease; }
+.bar-red { background: var(--red); }
+.bar-green { background: var(--accent2); }
+.bar-yellow { background: var(--yellow); }
+.bar-blue { background: var(--accent); }
+.bar-purple { background: var(--purple); }
+
+/* Agent cards */
+.agent-card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 14px; margin-bottom: 10px; }
+.agent-card-header { display: flex; align-items: center; justify-content: space-between; cursor: pointer; }
+.agent-name { font-size: 13px; font-weight: 600; }
+.agent-score { font-family: var(--font); font-size: 13px; }
+.agent-score.fake { color: var(--red); }
+.agent-score.real { color: var(--accent2); }
+.agent-score.neutral { color: var(--yellow); }
+.agent-badge { font-size: 10px; border-radius: 4px; padding: 2px 7px; font-weight: 600; }
+.badge-fake { background: rgba(248,81,73,0.2); color: var(--red); }
+.badge-real { background: rgba(63,185,80,0.2); color: var(--accent2); }
+.badge-neutral { background: rgba(227,179,65,0.2); color: var(--yellow); }
+.badge-skipped { background: var(--card); color: var(--muted2); }
+.agent-details { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border); font-size: 12px; color: var(--muted); display: none; }
+.agent-details.open { display: block; }
+.detail-row { display: flex; justify-content: space-between; padding: 3px 0; }
+.detail-key { color: var(--muted2); }
+.detail-val { color: var(--text); font-family: var(--font); }
+
+/* Metrics */
+.metric-card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 16px; }
+.metric-val { font-size: 28px; font-weight: 700; font-family: var(--font); }
+.metric-lbl { font-size: 11px; color: var(--muted); margin-top: 4px; text-transform: uppercase; letter-spacing: 0.5px; }
+
+/* Report */
+.report-viewer { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 28px; font-size: 13.5px; line-height: 1.75; max-height: 70vh; overflow-y: auto; }
+.report-viewer h1 { font-size: 20px; margin-bottom: 16px; color: var(--accent); }
+.report-viewer h2 { font-size: 16px; margin: 24px 0 10px; color: var(--text); border-bottom: 1px solid var(--border); padding-bottom: 6px; }
+.report-viewer h3 { font-size: 14px; margin: 18px 0 8px; color: var(--accent); }
+.report-viewer p { margin-bottom: 12px; color: var(--muted); }
+.report-viewer strong { color: var(--text); }
+.report-viewer code { font-family: var(--font); background: var(--card); padding: 2px 6px; border-radius: 3px; font-size: 12px; color: var(--accent); }
+.report-viewer blockquote { border-left: 3px solid var(--yellow); padding-left: 14px; margin: 12px 0; color: var(--muted); }
+.report-viewer table { border-collapse: collapse; width: 100%; margin: 14px 0; font-size: 12px; }
+.report-viewer th { background: var(--card); color: var(--text); padding: 8px 12px; text-align: left; border: 1px solid var(--border); font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; }
+.report-viewer td { padding: 7px 12px; border: 1px solid var(--border); color: var(--muted); }
+.report-viewer ul, .report-viewer ol { padding-left: 20px; margin-bottom: 12px; color: var(--muted); }
+.report-viewer li { margin-bottom: 4px; }
+.report-viewer hr { border: none; border-top: 1px solid var(--border); margin: 20px 0; }
+
+/* Training chart */
+.chart-wrap { height: 140px; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 12px; position: relative; overflow: hidden; }
+canvas { width: 100%; height: 100%; }
+
+/* Log */
+.log-box { background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 14px; font-family: var(--font); font-size: 11.5px; max-height: 240px; overflow-y: auto; color: var(--muted); }
+.log-box .log-entry { padding: 2px 0; border-bottom: 1px solid rgba(255,255,255,0.03); }
+.log-box .log-time { color: var(--muted2); }
+.log-box .log-msg { color: var(--text); }
+
+/* Spinner */
+.spinner { display: inline-block; width: 16px; height: 16px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.7s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* Tags */
+.tag { display: inline-block; font-size: 10px; font-weight: 600; padding: 2px 8px; border-radius: 4px; font-family: var(--font); }
+.tag-quantum { background: rgba(163,113,247,0.2); color: var(--purple); border: 1px solid rgba(163,113,247,0.3); }
+.tag-experimental { background: rgba(227,179,65,0.15); color: var(--yellow); border: 1px solid rgba(227,179,65,0.25); }
+.tag-ai { background: rgba(88,166,255,0.15); color: var(--accent); border: 1px solid rgba(88,166,255,0.25); }
+
+/* Form elements */
+input[type=range] { width: 100%; accent-color: var(--accent); }
+input[type=number], select { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; color: var(--text); padding: 8px 12px; font-size: 13px; width: 100%; outline: none; }
+input[type=number]:focus, select:focus { border-color: var(--accent); }
+label { font-size: 12px; color: var(--muted); display: block; margin-bottom: 5px; }
+
+/* Algo config */
+.weight-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.weight-name { font-size: 12px; color: var(--muted); width: 200px; flex-shrink: 0; }
+.weight-bar-wrap { flex: 1; background: var(--border); border-radius: 4px; height: 8px; overflow: hidden; }
+.weight-bar { height: 100%; background: var(--accent); border-radius: 4px; }
+.weight-val { font-family: var(--font); font-size: 12px; color: var(--text); width: 42px; text-align: right; flex-shrink: 0; }
+
+/* Toast */
+.toast { position: fixed; bottom: 24px; right: 24px; background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 12px 18px; font-size: 13px; z-index: 9999; animation: slideup 0.3s; max-width: 320px; }
+.toast.success { border-left: 3px solid var(--accent2); }
+.toast.error { border-left: 3px solid var(--red); }
+.toast.info { border-left: 3px solid var(--accent); }
+@keyframes slideup { from { opacity:0; transform: translateY(20px); } to { opacity:1; transform:translateY(0); } }
+
+/* Media preview */
+.media-preview { border-radius: 8px; overflow: hidden; background: var(--surface); border: 1px solid var(--border); text-align: center; }
+.media-preview img { max-width: 100%; max-height: 300px; object-fit: contain; }
+.media-preview video { max-width: 100%; max-height: 300px; }
+
+/* Separator */
+.sep { border: none; border-top: 1px solid var(--border); margin: 20px 0; }
+
+/* Animation for results */
+@keyframes fadeIn { from { opacity:0; transform: translateY(8px); } to { opacity:1; transform:translateY(0); } }
+.fade-in { animation: fadeIn 0.35s ease both; }
+
+/* Responsive */
+@media (max-width: 900px) {
+  .sidebar { width: 200px; }
+  .main { margin-left: 200px; }
+  .grid-2, .grid-3, .grid-4 { grid-template-columns: 1fr 1fr; }
+}
+@media (max-width: 680px) {
+  .sidebar { display: none; }
+  .main { margin-left: 0; }
+  .grid-2, .grid-3, .grid-4 { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+<div class="layout">
+
+<!-- ── Sidebar ────────────────────────────────────────────────────────── -->
+<aside class="sidebar">
+  <div class="sidebar-logo">
+    <h1>🔍 Obscuro Deepimage</h1>
+    <p>Agentic Forensic Detection</p>
+    <span class="version">v1.0.0</span>
+  </div>
+
+  <div class="sidebar-section">
+    <div class="sidebar-section-title">Navigation</div>
+    <div class="nav-item active" onclick="switchTab('detect')"><span class="icon">🔬</span> Detect</div>
+    <div class="nav-item" onclick="switchTab('report')"><span class="icon">📋</span> Forensic Report</div>
+    <div class="nav-item" onclick="switchTab('training')"><span class="icon">🎓</span> Training Lab</div>
+    <div class="nav-item" onclick="switchTab('evolution')"><span class="icon">🧬</span> Algorithm Lab</div>
+    <div class="nav-item" onclick="switchTab('stats')"><span class="icon">📈</span> Accuracy Stats</div>
+  </div>
+
+  <div class="sidebar-section">
+    <div class="sidebar-section-title">System Status</div>
+    <div id="sidebarStatus">
+      <div class="status-item"><span class="status-dot dot-yellow"></span>Checking API...</div>
+    </div>
+  </div>
+
+  <div class="sidebar-section">
+    <div class="sidebar-section-title">Forensic Agents</div>
+    <div class="status-item"><span class="icon" style="margin-right:6px;font-size:13px">🖼️</span><span>Spatial (ViT + EfficientNet)</span></div>
+    <div class="status-item"><span class="icon" style="margin-right:6px;font-size:13px">📡</span><span>Frequency (FFT/DCT)</span></div>
+    <div class="status-item"><span class="icon" style="margin-right:6px;font-size:13px">🎬</span><span>Temporal (optical flow)</span></div>
+    <div class="status-item"><span class="icon" style="margin-right:6px;font-size:13px">💓</span><span>Biological (rPPG)</span></div>
+    <div class="status-item"><span class="icon" style="margin-right:6px;font-size:13px">🎙️</span><span>Audio-Visual sync</span></div>
+    <div class="status-item"><span class="icon" style="margin-right:6px;font-size:13px">⚛️</span><span>Quantum Fusion</span></div>
+  </div>
+
+  <div class="sidebar-footer">
+    ⚠️ Research tool only. Not legally admissible.
+  </div>
+</aside>
+
+<!-- ── Main ───────────────────────────────────────────────────────────── -->
+<main class="main">
+  <div class="topbar">
+    <div>
+      <div class="topbar-title" id="topbarTitle">🔬 Forensic Analysis</div>
+      <div class="topbar-sub" id="topbarSub">Upload media to begin multi-agent deepfake detection</div>
+    </div>
+    <div class="topbar-right">
+      <span id="modelStatusBadge" class="tag tag-ai">⏳ Loading...</span>
+      <button class="btn btn-ghost btn-sm" onclick="checkHealth()">↻ Refresh</button>
+    </div>
+  </div>
+
+  <div class="content">
+
+    <!-- ── DETECT TAB ── -->
+    <div id="tab-detect" class="tab-panel active">
+      <div class="grid-2" style="margin-bottom:20px">
+        <!-- Upload -->
+        <div class="card" style="margin-bottom:0">
+          <div class="card-title"><span class="icon">📁</span> Media Upload</div>
+          <input type="file" id="fileInput" accept=".jpg,.jpeg,.png,.webp,.bmp,.mp4,.avi,.mov,.mkv" style="display:none" onchange="onFileSelect(this)">
+          <div class="upload-zone" id="uploadZone" onclick="document.getElementById('fileInput').click()" ondragover="onDragOver(event)" ondragleave="onDragLeave(event)" ondrop="onDrop(event)">
+            <div class="icon">📤</div>
+            <h3>Drop file or click to browse</h3>
+            <p>Images and videos accepted</p>
+            <div class="formats">
+              <span class="format-badge">JPG</span><span class="format-badge">PNG</span>
+              <span class="format-badge">WebP</span><span class="format-badge">MP4</span>
+              <span class="format-badge">AVI</span><span class="format-badge">MOV</span>
+            </div>
+          </div>
+          <div id="fileInfo" style="display:none; margin-top:14px">
+            <div id="mediaPreview" class="media-preview" style="margin-bottom:12px"></div>
+            <div id="fileMeta" style="font-size:12px; color:var(--muted); line-height:1.8"></div>
+            <button class="btn btn-primary" id="analyseBtn" onclick="runAnalysis()" style="margin-top:14px; width:100%">
+              🔬 Run Forensic Analysis
+            </button>
+          </div>
+        </div>
+
+        <!-- Quick result -->
+        <div class="card" style="margin-bottom:0">
+          <div class="card-title"><span class="icon">⚖️</span> Verdict</div>
+          <div id="verdictContainer">
+            <div style="text-align:center; padding:40px 0; color:var(--muted2)">
+              <div style="font-size:36px; margin-bottom:12px">🧭</div>
+              <div>Awaiting analysis</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Analysis progress -->
+      <div id="progressCard" class="card" style="display:none">
+        <div class="card-title"><span class="spinner"></span>&nbsp; Analysis in Progress</div>
+        <div id="progressLog" class="log-box" style="height:80px"></div>
+      </div>
+
+      <!-- Agent breakdown -->
+      <div id="agentBreakdown" style="display:none" class="fade-in">
+        <div class="grid-2">
+          <div class="card" style="margin-bottom:0">
+            <div class="card-title"><span class="icon">📊</span> Signal Breakdown</div>
+            <div id="agentCards"></div>
+          </div>
+          <div>
+            <div class="card" style="margin-bottom:18px">
+              <div class="card-title"><span class="icon">⚛️</span> Fusion Weights <span class="tag tag-quantum" style="margin-left:8px">Quantum-Inspired</span></div>
+              <div id="fusionWeights"></div>
+            </div>
+            <div class="card" style="margin-bottom:0">
+              <div class="card-title"><span class="icon">🧮</span> Probability Meter</div>
+              <div id="probMeter"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Rationale -->
+        <div class="card">
+          <div class="card-title"><span class="icon">🔎</span> Detection Rationale</div>
+          <div id="rationaleText" class="report-viewer" style="max-height:260px; padding:16px; font-size:13px"></div>
+        </div>
+
+        <!-- Actions -->
+        <div style="display:flex; gap:12px; flex-wrap:wrap; margin-top:4px">
+          <button class="btn btn-success" onclick="switchTab('report')">📋 View Full Forensic Report</button>
+          <button class="btn btn-ghost" id="downloadJsonBtn" onclick="downloadJson()">📥 Download JSON</button>
+          <button class="btn btn-ghost" id="feedbackBtn" onclick="showFeedback()">📬 Submit Ground Truth</button>
+        </div>
+
+        <!-- Feedback form -->
+        <div id="feedbackForm" class="card" style="display:none; margin-top:16px">
+          <div class="card-title">📬 Ground Truth Feedback</div>
+          <p style="color:var(--muted); font-size:12px; margin-bottom:14px">Labelling this sample helps the self-improvement and training agents improve accuracy over time.</p>
+          <div style="display:flex; gap:14px; align-items:center">
+            <label style="display:flex; align-items:center; gap:6px; cursor:pointer; margin:0">
+              <input type="radio" name="gt" value="fake" style="accent-color:var(--red)"> <span style="color:var(--red); font-weight:600">FAKE</span>
+            </label>
+            <label style="display:flex; align-items:center; gap:6px; cursor:pointer; margin:0">
+              <input type="radio" name="gt" value="real" style="accent-color:var(--accent2)"> <span style="color:var(--accent2); font-weight:600">REAL</span>
+            </label>
+            <button class="btn btn-primary btn-sm" onclick="submitFeedback()">Submit</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── REPORT TAB ── -->
+    <div id="tab-report" class="tab-panel">
+      <div id="reportContainer">
+        <div style="text-align:center; padding:60px 0; color:var(--muted2)">
+          <div style="font-size:48px; margin-bottom:16px">📋</div>
+          <div style="font-size:16px; margin-bottom:8px">No report available yet</div>
+          <div style="font-size:13px">Run an analysis to generate a full forensic specialist report.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── TRAINING TAB ── -->
+    <div id="tab-training" class="tab-panel">
+      <div class="grid-2">
+        <div class="card" style="margin-bottom:0">
+          <div class="card-title"><span class="icon">⚙️</span> Training Configuration</div>
+          <div style="margin-bottom:14px">
+            <label>Epochs</label>
+            <input type="number" id="trainEpochs" value="10" min="1" max="100">
+          </div>
+          <div style="margin-bottom:14px">
+            <label>Synthetic Samples per Class</label>
+            <input type="number" id="trainSamples" value="100" min="10" max="1000">
+          </div>
+          <div style="margin-bottom:14px">
+            <label>Learning Rate</label>
+            <input type="number" id="trainLr" value="0.0001" min="0.000001" max="0.01" step="0.00001">
+          </div>
+          <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:18px">
+            <button class="btn btn-success" id="startTrainBtn" onclick="startTraining()">▶ Start Training</button>
+            <button class="btn btn-danger btn-sm" onclick="stopTraining()">⏹ Stop</button>
+          </div>
+          <div class="card" style="margin-top:18px; background:var(--bg); border-color:var(--border)">
+            <div class="card-title" style="font-size:11px">ℹ️ About Autonomous Training</div>
+            <p style="font-size:12px; color:var(--muted); line-height:1.6">
+              The training agent fine-tunes the EfficientNet-B4 spatial classifier using synthetic augmentation data and any user-labelled samples from the prediction log. The HuggingFace ViT model is kept frozen. Training runs entirely on CPU in the background.
+              <br><br>
+              <span class="tag tag-experimental">Experimental</span>
+            </p>
+          </div>
+        </div>
+
+        <div>
+          <div class="card" style="margin-bottom:18px">
+            <div class="card-title"><span class="icon">📊</span> Training Progress</div>
+            <div id="trainStatusBadge" style="margin-bottom:12px; font-size:13px; color:var(--muted)">Status: <strong id="trainStatus">idle</strong></div>
+            <div class="grid-2" style="margin-bottom:14px">
+              <div class="metric-card">
+                <div class="metric-val" id="trainEpochDisplay">—</div>
+                <div class="metric-lbl">Epoch</div>
+              </div>
+              <div class="metric-card">
+                <div class="metric-val" id="trainBestAcc">—</div>
+                <div class="metric-lbl">Best Val Acc</div>
+              </div>
+            </div>
+            <div style="margin-bottom:8px">
+              <div style="display:flex; justify-content:space-between; font-size:11px; color:var(--muted); margin-bottom:4px">
+                <span>Train Loss</span><span id="trainLossVal">—</span>
+              </div>
+              <div class="chart-wrap" id="lossChartWrap">
+                <canvas id="lossChart"></canvas>
+              </div>
+            </div>
+            <div>
+              <div style="display:flex; justify-content:space-between; font-size:11px; color:var(--muted); margin-bottom:4px">
+                <span>Val Accuracy</span><span id="trainAccVal">—</span>
+              </div>
+              <div class="chart-wrap" id="accChartWrap">
+                <canvas id="accChart"></canvas>
+              </div>
+            </div>
+          </div>
+
+          <div class="card" style="margin-bottom:0">
+            <div class="card-title"><span class="icon">📋</span> Training Log</div>
+            <div class="log-box" id="trainLog">Waiting for training to start...</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card" style="margin-top:18px">
+        <div class="card-title"><span class="icon">🏷️</span> Labelled Samples Available for Training</div>
+        <div id="labelledCount" style="color:var(--muted); font-size:13px">Loading...</div>
+      </div>
+    </div>
+
+    <!-- ── EVOLUTION TAB ── -->
+    <div id="tab-evolution" class="tab-panel">
+      <div class="grid-2">
+        <div class="card" style="margin-bottom:0">
+          <div class="card-title"><span class="icon">🧬</span> Algorithm Evolution Engine <span class="tag tag-ai" style="margin-left:8px">Self-Designing</span></div>
+          <p style="font-size:12px; color:var(--muted); line-height:1.6; margin-bottom:18px">
+            The Algorithm Evolver uses a genetic algorithm + Bayesian optimisation to autonomously discover superior fusion weight configurations and design novel detection algorithm variants. It evaluates candidates against labelled predictions and promotes the best-performing configuration to production.
+          </p>
+          <div style="margin-bottom:14px">
+            <label>Generations</label>
+            <input type="number" id="evolveGens" value="20" min="5" max="200">
+          </div>
+          <div style="margin-bottom:14px">
+            <label>Population Size</label>
+            <input type="number" id="evolvePopSize" value="10" min="4" max="50">
+          </div>
+          <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:18px">
+            <button class="btn btn-purple" onclick="startEvolution()">🧬 Start Evolution</button>
+            <button class="btn btn-danger btn-sm" onclick="stopEvolution()">⏹ Stop</button>
+            <button class="btn btn-ghost btn-sm" onclick="resetEvolution()">↺ Reset to Default</button>
+          </div>
+        </div>
+
+        <div>
+          <div class="card" style="margin-bottom:18px">
+            <div class="card-title"><span class="icon">📊</span> Evolution Status</div>
+            <div style="font-size:13px; color:var(--muted); margin-bottom:12px">Status: <strong id="evolveStatus">idle</strong> | Generation: <strong id="evolveGen">—</strong></div>
+            <div class="grid-2" style="margin-bottom:14px">
+              <div class="metric-card">
+                <div class="metric-val" id="evolveBestF1">—</div>
+                <div class="metric-lbl">Best F1 Score</div>
+              </div>
+              <div class="metric-card">
+                <div class="metric-val" id="evolveEvaluated">—</div>
+                <div class="metric-lbl">Configs Evaluated</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="card" style="margin-bottom:18px">
+            <div class="card-title"><span class="icon">⚖️</span> Active Algorithm Configuration</div>
+            <div id="activeWeights">Loading...</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="grid-2" style="margin-top:18px">
+        <div class="card" style="margin-bottom:0">
+          <div class="card-title"><span class="icon">💡</span> Designed Algorithms</div>
+          <div id="designedAlgos" style="color:var(--muted); font-size:13px">No algorithms designed yet. Run evolution to generate novel algorithm variants.</div>
+        </div>
+        <div class="card" style="margin-bottom:0">
+          <div class="card-title"><span class="icon">📋</span> Evolution Log</div>
+          <div class="log-box" id="evolveLog">Waiting for evolution to start...</div>
+        </div>
+      </div>
+
+      <div class="card" id="improvementsCard" style="margin-top:18px; display:none">
+        <div class="card-title"><span class="icon">🚀</span> Improvements Found</div>
+        <div id="improvementsList"></div>
+      </div>
+    </div>
+
+    <!-- ── STATS TAB ── -->
+    <div id="tab-stats" class="tab-panel">
+      <div id="statsContent">
+        <div style="text-align:center; padding:40px; color:var(--muted2)">
+          <div class="spinner" style="width:24px;height:24px;margin:0 auto 16px"></div>
+          Loading stats...
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /content -->
+</main>
+</div>
+
+<script>
+// ─── State ────────────────────────────────────────────────────────────────────
+let currentResult = null;
+let currentFile = null;
+let currentFileBytes = null;
+let currentHash = null;
+let trainingPollTimer = null;
+let evolutionPollTimer = null;
+let statsPollTimer = null;
+
+// ─── Tab switching ────────────────────────────────────────────────────────────
+function switchTab(name) {
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  document.querySelectorAll('.nav-item').forEach(n => {
+    if (n.textContent.toLowerCase().includes(name === 'detect' ? 'detect' :
+        name === 'report' ? 'report' : name === 'training' ? 'training' :
+        name === 'evolution' ? 'algorithm' : 'accuracy')) {
+      n.classList.add('active');
+    }
+  });
+  const titles = {
+    detect: ['🔬 Forensic Analysis', 'Upload media to begin multi-agent deepfake detection'],
+    report: ['📋 Forensic Specialist Report', 'Full court-grade digital forensic examination report'],
+    training: ['🎓 Autonomous Training Lab', 'Fine-tune detection models with labelled data'],
+    evolution: ['🧬 Algorithm Evolution Lab', 'Self-designing algorithm optimisation engine'],
+    stats: ['📈 Accuracy & Calibration', 'Self-improvement agent performance metrics'],
+  };
+  document.getElementById('topbarTitle').textContent = titles[name]?.[0] || '';
+  document.getElementById('topbarSub').textContent = titles[name]?.[1] || '';
+
+  if (name === 'stats') loadStats();
+  if (name === 'training') { loadTrainingStatus(); loadLabelledCount(); }
+  if (name === 'evolution') { loadEvolutionStatus(); loadActiveConfig(); }
+}
+
+// ─── Health check ─────────────────────────────────────────────────────────────
+async function checkHealth() {
+  try {
+    const r = await fetch('/api/health');
+    const d = await r.json();
+    const statusEl = document.getElementById('sidebarStatus');
+    const badge = document.getElementById('modelStatusBadge');
+    if (d.status === 'ok') {
+      statusEl.innerHTML = `
+        <div class="status-item"><span class="status-dot dot-green"></span><strong>API:</strong>&nbsp;Online</div>
+        <div class="status-item"><span class="status-dot ${d.models_loaded ? 'dot-green' : 'dot-yellow'}"></span><strong>Models:</strong>&nbsp;${d.models_loaded ? 'Loaded' : 'Loading…'}</div>
+        <div class="status-item"><span class="status-dot dot-green"></span><strong>Version:</strong>&nbsp;${d.version}</div>`;
+      badge.textContent = d.models_loaded ? '✅ Models Ready' : '⏳ Loading…';
+      badge.className = 'tag ' + (d.models_loaded ? 'tag-ai' : 'tag-experimental');
+    }
+  } catch (e) {
+    document.getElementById('sidebarStatus').innerHTML =
+      '<div class="status-item"><span class="status-dot dot-red"></span><strong>API:</strong>&nbsp;Offline</div>';
+    document.getElementById('modelStatusBadge').textContent = '❌ API Offline';
+    document.getElementById('modelStatusBadge').className = 'tag';
+  }
+}
+checkHealth();
+setInterval(checkHealth, 15000);
+
+// ─── File upload ──────────────────────────────────────────────────────────────
+function onFileSelect(input) {
+  if (input.files && input.files[0]) handleFile(input.files[0]);
+}
+function onDragOver(e) { e.preventDefault(); document.getElementById('uploadZone').classList.add('drag-over'); }
+function onDragLeave(e) { document.getElementById('uploadZone').classList.remove('drag-over'); }
+function onDrop(e) {
+  e.preventDefault();
+  document.getElementById('uploadZone').classList.remove('drag-over');
+  if (e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]);
+}
+
+function handleFile(file) {
+  currentFile = file;
+  const isVideo = /\.(mp4|avi|mov|mkv)$/i.test(file.name);
+  const sizeMB = (file.size / 1024 / 1024).toFixed(2);
+
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    currentFileBytes = e.target.result;
+    const preview = document.getElementById('mediaPreview');
+    if (isVideo) {
+      preview.innerHTML = `<video controls src="${e.target.result}" style="max-width:100%;max-height:200px"></video>`;
+    } else {
+      preview.innerHTML = `<img src="${e.target.result}" style="max-width:100%;max-height:200px;object-fit:contain">`;
+    }
+  };
+  reader.readAsDataURL(file);
+
+  document.getElementById('fileMeta').innerHTML =
+    `📄 <strong>${file.name}</strong> · ${sizeMB} MB · ${isVideo ? '🎬 Video' : '🖼️ Image'}`;
+  document.getElementById('fileInfo').style.display = 'block';
+  document.getElementById('uploadZone').style.display = 'none';
+}
+
+// ─── Analysis ─────────────────────────────────────────────────────────────────
+async function runAnalysis() {
+  if (!currentFile) return;
+
+  const btn = document.getElementById('analyseBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Analysing…';
+
+  document.getElementById('progressCard').style.display = 'block';
+  document.getElementById('agentBreakdown').style.display = 'none';
+  document.getElementById('verdictContainer').innerHTML =
+    '<div style="text-align:center;padding:40px 0"><span class="spinner" style="width:28px;height:28px"></span><div style="margin-top:14px;color:var(--muted)">Running multi-agent analysis…</div></div>';
+
+  const log = document.getElementById('progressLog');
+  function addLog(msg) {
+    log.innerHTML += `<div class="log-entry"><span class="log-time">[${new Date().toLocaleTimeString()}]</span> <span class="log-msg">${msg}</span></div>`;
+    log.scrollTop = log.scrollHeight;
+  }
+
+  addLog('Uploading file to forensic analysis pipeline…');
+  addLog('Dispatching Spatial Forensics Agent (ViT + EfficientNet-B4)…');
+
+  const formData = new FormData();
+  formData.append('file', currentFile);
+
+  try {
+    addLog('Running Frequency Analysis Agent (FFT/DCT/channel correlation)…');
+    const resp = await fetch('/api/analyse', { method: 'POST', body: formData });
+
+    if (!resp.ok) {
+      const err = await resp.text();
+      showToast('Analysis failed: ' + err.slice(0, 200), 'error');
+      btn.disabled = false; btn.innerHTML = '🔬 Run Forensic Analysis';
+      return;
+    }
+
+    const result = await resp.json();
+    currentResult = result;
+
+    // Compute client-side hash for feedback
+    const arrayBuffer = await currentFile.arrayBuffer();
+    const hashBuffer = await crypto.subtle.digest('SHA-256', arrayBuffer);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    currentHash = hashArray.map(b => b.toString(16).padStart(2,'0')).join('').slice(0, 16);
+
+    addLog('Fusion Agent: quantum-inspired weight calibration complete.');
+    addLog('Generating forensic specialist report…');
+    addLog(`✅ Analysis complete in ${result.processing_time_s?.toFixed(2)}s`);
+
+    renderVerdict(result);
+    renderAgentBreakdown(result);
+    renderForensicReport(result);
+
+    document.getElementById('agentBreakdown').style.display = 'block';
+    document.getElementById('progressCard').style.display = 'none';
+
+  } catch (e) {
+    showToast('Request error: ' + e.message, 'error');
+    addLog('❌ Error: ' + e.message);
+  }
+
+  btn.disabled = false;
+  btn.innerHTML = '🔬 Run Forensic Analysis';
+}
+
+// ─── Render verdict ───────────────────────────────────────────────────────────
+function renderVerdict(r) {
+  const verdict = r.verdict || 'UNCERTAIN';
+  const prob = (r.deepfake_probability * 100).toFixed(1);
+  const conf = (r.confidence_in_verdict * 100).toFixed(0);
+  const emoji = { 'LIKELY FAKE': '🚨', 'LIKELY REAL': '✅', 'UNCERTAIN': '⚠️' }[verdict] || '❓';
+  const cls = { 'LIKELY FAKE': 'verdict-fake', 'LIKELY REAL': 'verdict-real', 'UNCERTAIN': 'verdict-uncertain' }[verdict] || 'verdict-uncertain';
+
+  document.getElementById('verdictContainer').innerHTML = `
+    <div class="verdict-badge ${cls} fade-in">
+      <div class="verdict-label">${emoji} ${verdict}</div>
+      <div class="verdict-meta">
+        <div class="verdict-meta-item">
+          <div class="val">${prob}%</div>
+          <div class="lbl">Deepfake Prob.</div>
+        </div>
+        <div class="verdict-meta-item">
+          <div class="val">${conf}%</div>
+          <div class="lbl">Confidence</div>
+        </div>
+        <div class="verdict-meta-item">
+          <div class="val">${r.processing_time_s?.toFixed(1)}s</div>
+          <div class="lbl">Time</div>
+        </div>
+        <div class="verdict-meta-item">
+          <div class="val">${r.media_type?.toUpperCase()}</div>
+          <div class="lbl">Media Type</div>
+        </div>
+      </div>
+    </div>
+    ${(r.warnings||[]).map(w => `<div style="background:rgba(227,179,65,0.1);border:1px solid var(--yellow);border-radius:6px;padding:8px 12px;font-size:12px;color:var(--yellow);margin-bottom:8px">⚠️ ${w}</div>`).join('')}`;
+}
+
+// ─── Render agent breakdown ───────────────────────────────────────────────────
+function renderAgentBreakdown(r) {
+  const weights = r.fusion_weights || {};
+  const agentsEl = document.getElementById('agentCards');
+  agentsEl.innerHTML = '';
+
+  (r.agent_results || []).forEach((ar, i) => {
+    const signal = ar.signal_name || '';
+    const score = ar.score || 0;
+    const ran = ar.ran !== false;
+    const direction = score > 0.55 ? 'fake' : score < 0.45 ? 'real' : 'neutral';
+    const dirLabel = score > 0.55 ? '🔴 FAKE signal' : score < 0.45 ? '🟢 REAL signal' : '🟡 Neutral';
+    const badgeCls = ran ? (direction === 'fake' ? 'badge-fake' : direction === 'real' ? 'badge-real' : 'badge-neutral') : 'badge-skipped';
+    const badgeText = ran ? dirLabel : '⏭ Skipped';
+    const weight = weights[signal] || 0;
+    const barColor = direction === 'fake' ? 'bar-red' : direction === 'real' ? 'bar-green' : 'bar-yellow';
+
+    const detailsHtml = Object.entries(ar.details || {})
+      .filter(([k]) => !['note','caveat','error'].includes(k))
+      .slice(0, 6)
+      .map(([k,v]) => `<div class="detail-row"><span class="detail-key">${k.replace(/_/g,' ')}</span><span class="detail-val">${v}</span></div>`)
+      .join('') +
+      (ar.details?.note ? `<div style="margin-top:8px;color:var(--muted);font-size:11px">ℹ️ ${ar.details.note}</div>` : '') +
+      (ar.details?.caveat ? `<div style="margin-top:6px;color:var(--yellow);font-size:11px">⚠️ ${ar.details.caveat}</div>` : '');
+
+    agentsEl.innerHTML += `
+      <div class="agent-card">
+        <div class="agent-card-header" onclick="toggleAgent(${i})">
+          <div>
+            <div class="agent-name">${ar.agent_name}</div>
+            <div style="font-size:11px;color:var(--muted);margin-top:2px">Weight: ${(weight*100).toFixed(0)}%</div>
+          </div>
+          <div style="text-align:right">
+            <div class="agent-score ${ran ? direction : ''}">${ran ? score.toFixed(3) : '—'}</div>
+            <div class="agent-badge ${badgeCls}" style="margin-top:4px">${badgeText}</div>
+          </div>
+        </div>
+        ${ran ? `<div style="margin-top:8px">
+          <div class="progress-bar-wrap"><div class="progress-bar ${barColor}" style="width:${(score*100).toFixed(1)}%"></div></div>
+          <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--muted2);margin-top:3px"><span>Confidence: ${(ar.confidence*100).toFixed(0)}%</span><span>${(score*100).toFixed(1)}%</span></div>
+        </div>` : ''}
+        ${ran && detailsHtml ? `<div class="agent-details" id="detail-${i}">${detailsHtml}</div>` : ''}
+      </div>`;
+  });
+
+  // Fusion weights
+  const fw = document.getElementById('fusionWeights');
+  fw.innerHTML = '';
+  Object.entries(weights).forEach(([s, w]) => {
+    const name = s.replace(/_score$/, '').replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+    const pct = (w * 100).toFixed(1);
+    fw.innerHTML += `<div class="weight-row">
+      <div class="weight-name">${name}</div>
+      <div class="weight-bar-wrap"><div class="weight-bar" style="width:${pct}%"></div></div>
+      <div class="weight-val">${pct}%</div>
+    </div>`;
+  });
+
+  // Probability meter
+  const prob = r.deepfake_probability || 0;
+  const barCls = prob > 0.65 ? 'bar-red' : prob < 0.35 ? 'bar-green' : 'bar-yellow';
+  const label = prob > 0.75 ? 'High confidence FAKE' : prob > 0.55 ? 'Leaning FAKE' : prob < 0.25 ? 'High confidence REAL' : prob < 0.45 ? 'Leaning REAL' : 'Inconclusive';
+  document.getElementById('probMeter').innerHTML = `
+    <div style="font-size:28px;font-family:var(--font);font-weight:700;margin-bottom:8px">${(prob*100).toFixed(1)}%</div>
+    <div class="progress-bar-wrap" style="height:12px"><div class="progress-bar ${barCls}" style="width:${(prob*100).toFixed(1)}%"></div></div>
+    <div style="font-size:12px;color:var(--muted);margin-top:8px">${label}</div>`;
+
+  // Rationale
+  if (typeof marked !== 'undefined') {
+    document.getElementById('rationaleText').innerHTML = marked.parse(r.rationale || '');
+  } else {
+    document.getElementById('rationaleText').textContent = r.rationale || '';
+  }
+}
+
+function toggleAgent(i) {
+  const el = document.getElementById('detail-' + i);
+  if (el) el.classList.toggle('open');
+}
+
+// ─── Forensic report ──────────────────────────────────────────────────────────
+function renderForensicReport(r) {
+  const report = r.forensic_report;
+  if (!report) return;
+
+  const html = typeof marked !== 'undefined' ? marked.parse(report) : report.replace(/\n/g, '<br>');
+  document.getElementById('reportContainer').innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+      <div style="font-size:13px;color:var(--muted)">Full forensic examination report generated by Obscuro Deepimage Forensic Writer Agent</div>
+      <button class="btn btn-ghost btn-sm" onclick="downloadReport()">📥 Download Report (MD)</button>
+    </div>
+    <div class="report-viewer fade-in">${html}</div>`;
+}
+
+function downloadReport() {
+  if (!currentResult?.forensic_report) return;
+  const blob = new Blob([currentResult.forensic_report], {type: 'text/markdown'});
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+  a.download = `forensic_report_${currentFile?.name || 'sample'}.md`; a.click();
+}
+
+function downloadJson() {
+  if (!currentResult) return;
+  const blob = new Blob([JSON.stringify(currentResult, null, 2)], {type: 'application/json'});
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+  a.download = `obscuro_verdict_${currentFile?.name || 'sample'}.json`; a.click();
+}
+
+function showFeedback() {
+  const f = document.getElementById('feedbackForm');
+  f.style.display = f.style.display === 'none' ? 'block' : 'none';
+}
+
+async function submitFeedback() {
+  const gt = document.querySelector('input[name="gt"]:checked')?.value;
+  if (!gt || !currentHash) { showToast('Select real or fake first.', 'error'); return; }
+  const form = new FormData();
+  form.append('input_hash', currentHash);
+  form.append('ground_truth', gt);
+  const r = await fetch('/api/feedback', { method: 'POST', body: form });
+  if (r.ok) {
+    showToast(`Feedback recorded as "${gt}". Thank you.`, 'success');
+    document.getElementById('feedbackForm').style.display = 'none';
+  } else {
+    showToast('Feedback error: ' + (await r.text()).slice(0, 100), 'error');
+  }
+}
+
+// ─── Training ─────────────────────────────────────────────────────────────────
+async function startTraining() {
+  const epochs = parseInt(document.getElementById('trainEpochs').value) || 10;
+  const samples = parseInt(document.getElementById('trainSamples').value) || 100;
+  const lr = parseFloat(document.getElementById('trainLr').value) || 1e-4;
+
+  const r = await fetch('/api/train/start', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({epochs, samples_per_class: samples, lr})
+  });
+  const d = await r.json();
+  showToast(d.message || (d.started ? 'Training started.' : d.reason), d.started ? 'success' : 'error');
+  if (d.started) startTrainingPoll();
+}
+
+async function stopTraining() {
+  const r = await fetch('/api/train/stop', {method:'POST'});
+  const d = await r.json();
+  showToast(d.message, 'info');
+}
+
+async function loadTrainingStatus() {
+  const r = await fetch('/api/train/status');
+  const d = await r.json();
+  updateTrainingUI(d);
+  if (d.status === 'running' || d.status === 'starting') startTrainingPoll();
+}
+
+function startTrainingPoll() {
+  if (trainingPollTimer) return;
+  trainingPollTimer = setInterval(async () => {
+    const r = await fetch('/api/train/status');
+    const d = await r.json();
+    updateTrainingUI(d);
+    if (d.status !== 'running' && d.status !== 'starting') {
+      clearInterval(trainingPollTimer); trainingPollTimer = null;
+    }
+  }, 2000);
+}
+
+function updateTrainingUI(d) {
+  document.getElementById('trainStatus').textContent = d.status;
+  document.getElementById('trainEpochDisplay').textContent = d.total_epochs ? `${d.epoch}/${d.total_epochs}` : (d.epoch || '—');
+  document.getElementById('trainBestAcc').textContent = d.best_val_accuracy ? (d.best_val_accuracy * 100).toFixed(1) + '%' : '—';
+
+  const losses = d.train_loss || [];
+  const accs = d.val_accuracy || [];
+  if (losses.length) {
+    document.getElementById('trainLossVal').textContent = losses[losses.length-1].toFixed(4);
+    drawLineChart('lossChart', losses, 'var(--red)');
+  }
+  if (accs.length) {
+    document.getElementById('trainAccVal').textContent = (accs[accs.length-1] * 100).toFixed(1) + '%';
+    drawLineChart('accChart', accs.map(v => v * 100), 'var(--accent2)');
+  }
+
+  const log = document.getElementById('trainLog');
+  if (d.log?.length) {
+    log.innerHTML = d.log.slice(-40).map(l => `<div class="log-entry">${l}</div>`).join('');
+    log.scrollTop = log.scrollHeight;
+  }
+}
+
+async function loadLabelledCount() {
+  const r = await fetch('/api/stats');
+  const d = await r.json();
+  const lc = d.labelled_samples || {};
+  document.getElementById('labelledCount').innerHTML =
+    `<div class="grid-3">
+      <div class="metric-card"><div class="metric-val">${lc.fake || 0}</div><div class="metric-lbl">Labelled Fake</div></div>
+      <div class="metric-card"><div class="metric-val">${lc.real || 0}</div><div class="metric-lbl">Labelled Real</div></div>
+      <div class="metric-card"><div class="metric-val">${lc.total || 0}</div><div class="metric-lbl">Total Labelled</div></div>
+    </div>`;
+}
+
+// ─── Evolution ────────────────────────────────────────────────────────────────
+async function startEvolution() {
+  const gens = parseInt(document.getElementById('evolveGens').value) || 20;
+  const pop = parseInt(document.getElementById('evolvePopSize').value) || 10;
+  const r = await fetch('/api/evolve/start', {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({generations: gens, population_size: pop})
+  });
+  const d = await r.json();
+  showToast(d.message || (d.started ? 'Evolution started.' : d.reason), d.started ? 'success' : 'error');
+  if (d.started) startEvolutionPoll();
+}
+
+async function stopEvolution() {
+  const r = await fetch('/api/evolve/stop', {method:'POST'});
+  const d = await r.json();
+  showToast(d.message, 'info');
+}
+
+async function resetEvolution() {
+  const r = await fetch('/api/evolve/reset', {method:'POST'});
+  const d = await r.json();
+  showToast(d.message, 'success');
+  loadActiveConfig();
+}
+
+async function loadEvolutionStatus() {
+  const r = await fetch('/api/evolve/status');
+  const d = await r.json();
+  updateEvolutionUI(d);
+  if (d.status === 'running' || d.status === 'starting') startEvolutionPoll();
+}
+
+function startEvolutionPoll() {
+  if (evolutionPollTimer) return;
+  evolutionPollTimer = setInterval(async () => {
+    const r = await fetch('/api/evolve/status');
+    const d = await r.json();
+    updateEvolutionUI(d);
+    if (d.status !== 'running' && d.status !== 'starting') {
+      clearInterval(evolutionPollTimer); evolutionPollTimer = null;
+      loadActiveConfig();
+    }
+  }, 2000);
+}
+
+function updateEvolutionUI(d) {
+  document.getElementById('evolveStatus').textContent = d.status;
+  document.getElementById('evolveGen').textContent = d.total_generations ? `${d.generation}/${d.total_generations}` : (d.generation || '—');
+  document.getElementById('evolveBestF1').textContent = d.best_f1 ? d.best_f1.toFixed(3) : '—';
+  document.getElementById('evolveEvaluated').textContent = d.evaluated_configs || '—';
+
+  const log = document.getElementById('evolveLog');
+  if (d.log?.length) {
+    log.innerHTML = d.log.slice(-40).map(l => `<div class="log-entry">${l}</div>`).join('');
+    log.scrollTop = log.scrollHeight;
+  }
+
+  // Designed algorithms
+  const algos = d.designed_algorithms || [];
+  const algoEl = document.getElementById('designedAlgos');
+  if (algos.length) {
+    algoEl.innerHTML = algos.map(a => `
+      <div class="agent-card" style="margin-bottom:10px">
+        <div class="agent-name">${a.style || 'Custom'} — Gen ${a.generation}</div>
+        <div style="font-size:12px;color:var(--muted);margin-top:4px">${a.description}</div>
+        ${a.f1 ? `<div style="font-size:12px;color:var(--accent2);margin-top:4px">F1: ${a.f1.toFixed(3)}</div>` : ''}
+      </div>`).join('');
+  }
+
+  // Improvements
+  const improvements = d.improvements || [];
+  if (improvements.length) {
+    document.getElementById('improvementsCard').style.display = 'block';
+    document.getElementById('improvementsList').innerHTML = improvements.map(imp =>
+      `<div style="display:flex;gap:16px;align-items:center;padding:8px 0;border-bottom:1px solid var(--border)">
+        <div style="font-size:12px;color:var(--muted)">Gen ${imp.generation}</div>
+        <div style="color:var(--accent2);font-weight:600;font-family:var(--font)">F1: ${imp.f1}</div>
+        <div style="font-size:12px;color:var(--muted)">Acc: ${(imp.accuracy*100).toFixed(1)}% · P: ${imp.precision?.toFixed(3)} · R: ${imp.recall?.toFixed(3)}</div>
+      </div>`).join('');
+  }
+}
+
+async function loadActiveConfig() {
+  const r = await fetch('/api/evolve/config');
+  const d = await r.json();
+  const weights = d.weights || {};
+  const el = document.getElementById('activeWeights');
+  el.innerHTML = Object.entries(weights).map(([s, w]) => {
+    const name = s.replace(/_score$/, '').replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+    return `<div class="weight-row">
+      <div class="weight-name">${name}</div>
+      <div class="weight-bar-wrap"><div class="weight-bar" style="width:${(w*100).toFixed(1)}%"></div></div>
+      <div class="weight-val">${(w*100).toFixed(1)}%</div>
+    </div>`;
+  }).join('') +
+  (d.thresholds ? `<div style="margin-top:14px;font-size:12px;color:var(--muted)">
+    Fake thresh: <strong>${d.thresholds.fake_threshold}</strong> · 
+    Real thresh: <strong>${d.thresholds.real_threshold}</strong> · 
+    Conf min: <strong>${d.thresholds.confidence_minimum}</strong>
+  </div>` : '');
+}
+
+// ─── Stats ────────────────────────────────────────────────────────────────────
+async function loadStats() {
+  const r = await fetch('/api/stats');
+  const d = await r.json();
+  const report = d.accuracy_report || {};
+  const recal = d.weight_recalibration;
+  const lc = d.labelled_samples || {};
+
+  let html = '';
+  if (report.accuracy !== undefined) {
+    html += `<div class="grid-4" style="margin-bottom:20px">
+      <div class="metric-card"><div class="metric-val" style="color:var(--accent2)">${(report.accuracy*100).toFixed(1)}%</div><div class="metric-lbl">Accuracy</div></div>
+      <div class="metric-card"><div class="metric-val">${(report.precision*100).toFixed(1)}%</div><div class="metric-lbl">Precision</div></div>
+      <div class="metric-card"><div class="metric-val">${(report.recall*100).toFixed(1)}%</div><div class="metric-lbl">Recall</div></div>
+      <div class="metric-card"><div class="metric-val" style="color:var(--purple)">${(report.f1*100).toFixed(1)}%</div><div class="metric-lbl">F1 Score</div></div>
+    </div>`;
+    if (report.degradation_flag) {
+      html += `<div style="background:rgba(248,81,73,0.1);border:1px solid var(--red);border-radius:8px;padding:14px;margin-bottom:18px;color:var(--red)">
+        ⚠️ <strong>DEGRADATION FLAG:</strong> Accuracy below 60% threshold. Recalibration recommended.
+      </div>`;
+    }
+  } else {
+    html += `<div class="card">
+      <p style="color:var(--muted)">${report.message || 'No accuracy data yet. Submit ground-truth labels via the Detect tab after running analyses.'}</p>
+      <p style="color:var(--muted); margin-top:10px">Total predictions: <strong>${report.total_predictions || 0}</strong> · Labelled: <strong>${report.labelled_predictions || 0}</strong></p>
+    </div>`;
+  }
+
+  html += `<div class="grid-3" style="margin-bottom:20px">
+    <div class="metric-card"><div class="metric-val">${lc.fake || 0}</div><div class="metric-lbl">Fake Labels</div></div>
+    <div class="metric-card"><div class="metric-val">${lc.real || 0}</div><div class="metric-lbl">Real Labels</div></div>
+    <div class="metric-card"><div class="metric-val">${lc.total || 0}</div><div class="metric-lbl">Total Labelled</div></div>
+  </div>`;
+
+  if (recal) {
+    html += `<div class="card"><div class="card-title">⚖️ Suggested Recalibration</div><pre style="font-size:11px;color:var(--muted);font-family:var(--font)">${JSON.stringify(recal, null, 2)}</pre></div>`;
+  }
+
+  document.getElementById('statsContent').innerHTML = html;
+}
+
+// ─── Canvas chart ─────────────────────────────────────────────────────────────
+function drawLineChart(canvasId, values, color) {
+  const canvas = document.getElementById(canvasId);
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const W = canvas.offsetWidth, H = canvas.offsetHeight;
+  canvas.width = W; canvas.height = H;
+  if (!values.length) return;
+
+  const min = Math.min(...values), max = Math.max(...values);
+  const range = (max - min) || 1;
+
+  ctx.clearRect(0, 0, W, H);
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+
+  values.forEach((v, i) => {
+    const x = (i / Math.max(values.length - 1, 1)) * W;
+    const y = H - ((v - min) / range) * H * 0.85 - H * 0.075;
+    if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+  });
+  ctx.stroke();
+
+  // Fill
+  ctx.lineTo(W, H); ctx.lineTo(0, H); ctx.closePath();
+  ctx.fillStyle = color + '22';
+  ctx.fill();
+}
+
+// ─── Toast ────────────────────────────────────────────────────────────────────
+function showToast(msg, type = 'info') {
+  const t = document.createElement('div');
+  t.className = `toast ${type}`;
+  t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 4000);
+}
+</script>
+</body>
+</html>
