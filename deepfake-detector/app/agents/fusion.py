@@ -1,5 +1,5 @@
 """
-Fusion & Explanation Agent.
+Fusion & Explanation Agent — Obscuro Deepimage.
 
 Combines signals from all specialist agents into a single deepfake probability
 using a confidence-weighted ensemble, with optional quantum-inspired
@@ -8,29 +8,39 @@ weight optimisation via PennyLane (classical simulation).
 Outputs:
   - deepfake_probability (float, 0-1)
   - confidence_in_verdict (float, 0-1)
-  - verdict string
+  - verdict string (LIKELY FAKE | UNCERTAIN | LIKELY REAL)
   - structured prose rationale
   - per-agent weight breakdown
+  - conflict flag when agents strongly disagree
+
+Quantum note: The PennyLane variational circuit runs on classical CPU simulation.
+No quantum hardware is used. This module is labelled as experimental research.
 """
 import logging
 import numpy as np
 from typing import List, Dict, Any
 
-from app.schemas import AgentResult, ForensicVerdict
+from app.schemas import AgentResult
 
 logger = logging.getLogger(__name__)
 
-# Prior base weights per signal (tuned for balanced precision/recall)
+# ── Signal prior weights ───────────────────────────────────────────────────────
+# Calibrated for image analysis (video agents receive reduced base prior)
 SIGNAL_PRIORS: Dict[str, float] = {
-    "pixel_artifact_score":         0.35,
-    "spectral_artifact_score":      0.25,
-    "temporal_inconsistency_score": 0.20,
-    "rppg_anomaly_score":           0.10,
-    "lip_sync_mismatch_score":      0.10,
+    "pixel_artifact_score":         0.28,   # Spatial / ViT — most reliable
+    "spectral_artifact_score":      0.20,   # Frequency / FFT+SRM
+    "anatomical_anomaly_score":     0.18,   # Facial landmarks (MediaPipe)
+    "metadata_anomaly_score":       0.14,   # EXIF / metadata
+    "temporal_inconsistency_score": 0.10,   # Video temporal (skipped for images)
+    "rppg_anomaly_score":           0.05,   # rPPG biological (video only)
+    "lip_sync_mismatch_score":      0.05,   # Audio-visual sync (video only)
 }
 
+# Conflict threshold: agents disagree if score delta ≥ this and both conf ≥ 0.40
+_CONFLICT_DELTA = 0.45
 
-# ─── Quantum-inspired weight optimisation ────────────────────────────────────
+
+# ── Quantum-inspired weight optimisation ──────────────────────────────────────
 
 def _quantum_inspired_weight_update(
     scores: List[float],
@@ -38,22 +48,18 @@ def _quantum_inspired_weight_update(
     priors: List[float],
 ) -> List[float]:
     """
-    Quantum-inspired optimization: uses a PennyLane variational circuit
-    (running on classical CPU simulation) to find a weight vector that
-    minimises the expected calibration error under the given signal scores.
+    Variational quantum circuit (PennyLane, classical CPU simulation) that
+    adjusts ensemble weights based on per-agent confidence scores.
 
-    IMPORTANT LABEL: This is an *experimental, quantum-inspired* module
-    simulated entirely on classical hardware. It provides a heuristic weight
-    adjustment, not a proven accuracy improvement. It is included as a
-    research exploration into variational quantum circuits for ensemble fusion.
-
-    Returns normalised weight vector.
+    EXPERIMENTAL LABEL: This runs on classical hardware — no quantum speedup.
+    Included as a research exploration into variational quantum circuits for
+    ensemble fusion weight calibration.
     """
     try:
         import pennylane as qml
 
         n = len(scores)
-        if n == 0:
+        if n < 2:
             return priors
 
         dev = qml.device("default.qubit", wires=n)
@@ -62,59 +68,87 @@ def _quantum_inspired_weight_update(
         def circuit(params):
             for i in range(n):
                 qml.RY(params[i], wires=i)
+            for i in range(n - 1):
+                qml.CNOT(wires=[i, i + 1])
             return [qml.expval(qml.PauliZ(i)) for i in range(n)]
 
-        # Initialise params from prior weights (map [0,1] → [0, π])
+        # Map prior weights [0,1] → rotation angles [0, π], scaled by confidence
         params = np.array([p * np.pi for p in priors], dtype=np.float64)
+        adjusted = params * np.clip(confidences, 0.1, 1.0)
 
-        # One-step gradient-free update: scale params by confidence
-        adjusted_params = params * np.array(confidences)
-
-        # Run circuit — returns list of ⟨Z⟩ expectation values in [-1, 1]
-        z_vals = circuit(adjusted_params)
-        # Convert [-1, 1] → [0, 1] probability-like values
+        z_vals = circuit(adjusted)
         weights = np.array([(1.0 + float(z)) / 2.0 for z in z_vals])
 
-        # Blend with confidence-weighted priors (circuit output is noisy)
-        blended = 0.4 * weights + 0.6 * np.array(priors)
+        # Blend: 35% circuit output + 65% confidence-adjusted priors
+        conf_w = np.array(priors) * np.clip(confidences, 0.1, 1.0)
+        blended = 0.35 * weights + 0.65 * (conf_w / (conf_w.sum() + 1e-8))
         normalised = blended / (blended.sum() + 1e-8)
         return normalised.tolist()
 
     except Exception as exc:
-        logger.debug("Quantum-inspired optimisation unavailable (%s) — using prior weights.", exc)
+        logger.debug("Quantum-inspired optimisation unavailable (%s) — using priors.", exc)
         return priors
 
 
-# ─── Verdict generation ───────────────────────────────────────────────────────
+# ── Conflict detection ─────────────────────────────────────────────────────────
 
-def _verdict_label(prob: float, confidence: float) -> str:
-    if confidence < 0.30:
+def _find_conflicts(
+    active: List[AgentResult],
+    signal_map: Dict[str, tuple],
+) -> List[str]:
+    """Return human-readable descriptions of strong inter-agent disagreements."""
+    conflicts = []
+    eligible = [
+        ar for ar in active
+        if ar.confidence >= 0.40 and ar.signal_name in signal_map
+    ]
+    for i in range(len(eligible)):
+        for j in range(i + 1, len(eligible)):
+            a, b = eligible[i], eligible[j]
+            if abs(a.score - b.score) >= _CONFLICT_DELTA:
+                dir_a = "FAKE" if a.score > 0.5 else "REAL"
+                dir_b = "FAKE" if b.score > 0.5 else "REAL"
+                conflicts.append(
+                    f"{a.agent_name} ({dir_a} {a.score:.2f}) ↔ "
+                    f"{b.agent_name} ({dir_b} {b.score:.2f})"
+                )
+    return conflicts
+
+
+# ── Verdict generation ─────────────────────────────────────────────────────────
+
+def _verdict_label(prob: float, confidence: float, has_conflict: bool) -> str:
+    """
+    Produce a three-tier verdict aligned with the spec:
+      LIKELY FAKE | UNCERTAIN | LIKELY REAL
+    Conflicts lower the confidence threshold, pushing toward UNCERTAIN.
+    """
+    if confidence < 0.28 or has_conflict:
         return "UNCERTAIN"
-    if prob >= 0.65:
+    if prob >= 0.60:
         return "LIKELY FAKE"
-    if prob <= 0.35:
+    if prob <= 0.40:
         return "LIKELY REAL"
     return "UNCERTAIN"
 
+
+# ── Rationale builder ─────────────────────────────────────────────────────────
 
 def _build_rationale(
     verdict: str,
     prob: float,
     agent_results: List[AgentResult],
     weights: Dict[str, float],
+    conflicts: List[str],
 ) -> str:
-    """
-    Generate a structured prose rationale explaining the verdict.
-    Written for a non-technical reader while preserving forensic precision.
-    """
     lines = []
-    lines.append(f"**Verdict: {verdict}** (deepfake probability: {prob:.1%})\n")
+    lines.append(f"**Verdict: {verdict}** — deepfake probability: {prob:.1%}\n")
 
-    lines.append("**Summary of forensic signals:**\n")
+    lines.append("**Forensic signal summary:**\n")
     for ar in agent_results:
         if not ar.ran:
             lines.append(
-                f"- *{ar.agent_name}*: Skipped — {ar.skipped_reason or 'not applicable'}"
+                f"- *{ar.agent_name}*: skipped — {ar.skipped_reason or 'not applicable'}"
             )
             continue
         w = weights.get(ar.signal_name, 0.0)
@@ -123,43 +157,49 @@ def _build_rationale(
             f"- *{ar.agent_name}* (weight {w:.0%}): score {ar.score:.2f} → "
             f"**{direction}** (agent confidence: {ar.confidence:.0%})"
         )
-        # Add key detail notes
         if "note" in ar.details:
-            lines.append(f"  - {ar.details['note']}")
+            lines.append(f"  ↳ {ar.details['note']}")
         if "caveat" in ar.details:
-            lines.append(f"  - ⚠️ {ar.details['caveat']}")
+            lines.append(f"  ⚠️ {ar.details['caveat']}")
+
+    if conflicts:
+        lines.append("\n**⚠️ Agent conflicts detected:**")
+        for c in conflicts:
+            lines.append(f"  - {c}")
+        lines.append(
+            "  Conflicting signals mean multiple independent detectors disagree. "
+            "The verdict should be treated with caution and reviewed by a human expert."
+        )
 
     lines.append("\n**Interpretation:**")
     if verdict == "LIKELY FAKE":
         lines.append(
-            "Multiple independent forensic signals indicate this media is likely synthetically "
-            "generated or manipulated. The pixel-level and spectral analyses are the primary "
-            "drivers of this assessment."
+            "Multiple independent forensic signals converge on synthetic origin. "
+            "Pixel-level, spectral, anatomical, and/or metadata evidence point toward "
+            "AI generation or manipulation. "
         )
     elif verdict == "LIKELY REAL":
         lines.append(
-            "The forensic signals are broadly consistent with authentic, unmanipulated media. "
-            "No single strong indicator of synthesis was found. This does not constitute a "
-            "definitive certificate of authenticity."
+            "No strong synthetic indicators were found. Forensic signals are broadly "
+            "consistent with authentic, unmanipulated media. This is not a certificate "
+            "of authenticity — sophisticated adversarial content may evade detection."
         )
     else:
         lines.append(
-            "The evidence is inconclusive. Individual signals disagree, or the overall confidence "
-            "in the detection is too low to issue a reliable verdict. Manual review by a human "
-            "expert is recommended."
+            "Evidence is inconclusive. Signals disagree or overall confidence is too "
+            "low for a reliable determination. Manual expert review is recommended."
         )
 
     lines.append(
-        "\n**Important caveat:** Deepfake detection is probabilistic. State-of-the-art detectors "
-        "have known generalisation limits — particularly against generation methods not represented "
-        "in their training data. This analysis is intended as forensic evidence, not legal proof. "
-        "False positives and false negatives occur."
+        "\n**⚠️ Caveat:** Deepfake detection is probabilistic. No detector generalises "
+        "perfectly to all generation methods. This analysis is forensic evidence, "
+        "not legal proof. False positives and false negatives occur."
     )
 
     return "\n".join(lines)
 
 
-# ─── Main fusion function ─────────────────────────────────────────────────────
+# ── Main fusion function ───────────────────────────────────────────────────────
 
 def fuse(
     agent_results: List[AgentResult],
@@ -167,7 +207,7 @@ def fuse(
 ) -> Dict[str, Any]:
     """
     Fuse agent results into a single verdict.
-    Returns dict matching ForensicVerdict fields.
+    Returns dict matching ForensicVerdict fields (minus agent_results).
     """
     active = [ar for ar in agent_results if ar.ran]
 
@@ -180,34 +220,40 @@ def fuse(
             rationale="No agents produced usable results.",
         )
 
-    # Map signal_name → (score, confidence)
     signal_map = {ar.signal_name: (ar.score, ar.confidence) for ar in active}
-
-    # Build weight vector matching available signals
     available_signals = [ar.signal_name for ar in active]
-    prior_weights = [SIGNAL_PRIORS.get(s, 0.1) for s in available_signals]
-    # Normalise priors
-    total = sum(prior_weights) or 1.0
-    prior_weights = [w / total for w in prior_weights]
 
-    scores = [signal_map[s][0] for s in available_signals]
+    # Normalised priors for available signals
+    raw_priors = [SIGNAL_PRIORS.get(s, 0.08) for s in available_signals]
+    total = sum(raw_priors) or 1.0
+    prior_weights = [w / total for w in raw_priors]
+
+    scores      = [signal_map[s][0] for s in available_signals]
     confidences = [signal_map[s][1] for s in available_signals]
 
-    # Quantum-inspired weight update
+    # Quantum-inspired calibration
     if use_quantum and len(scores) >= 2:
         weights = _quantum_inspired_weight_update(scores, confidences, prior_weights)
     else:
-        weights = prior_weights
+        # Confidence-scaled priors
+        conf_scaled = [p * max(c, 0.1) for p, c in zip(prior_weights, confidences)]
+        total_cs = sum(conf_scaled) or 1.0
+        weights = [w / total_cs for w in conf_scaled]
 
-    # Confidence-weighted fusion
     weighted_score = float(np.dot(weights, scores))
+    weighted_conf  = float(np.dot(weights, confidences))
 
-    # Overall confidence: mean agent confidence weighted by signal weight
-    weighted_conf = float(np.dot(weights, confidences))
-    verdict = _verdict_label(weighted_score, weighted_conf)
+    # Conflict detection
+    conflicts = _find_conflicts(active, signal_map)
+    has_conflict = len(conflicts) > 0
 
+    # If strong conflict exists, pull confidence down
+    if has_conflict:
+        weighted_conf *= 0.75
+
+    verdict = _verdict_label(weighted_score, weighted_conf, has_conflict)
     fusion_weights = {s: round(float(w), 4) for s, w in zip(available_signals, weights)}
-    rationale = _build_rationale(verdict, weighted_score, agent_results, fusion_weights)
+    rationale = _build_rationale(verdict, weighted_score, agent_results, fusion_weights, conflicts)
 
     return dict(
         verdict=verdict,
