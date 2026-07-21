@@ -1,76 +1,43 @@
 # Obscuro Deepimage
 
-Agentic multi-modal deepfake detection system. Upload an image or video and receive a multi-signal forensic verdict — not a black-box label — with per-agent score breakdowns, fusion weights, and structured prose rationale.
+An agentic, multi-signal deepfake detection system. Upload an image and the system runs multiple specialist detection agents in parallel, fuses the signals, and returns a forensic verdict with confidence score and plain-language explanation.
 
-## Run & Operate
+## Architecture
 
-- **UI (Streamlit):** `cd deepfake-detector && python start_ui.py` — port 8080 (webview)
-- **API (FastAPI):** `cd deepfake-detector && python start_api.py` — port 8000 (console)
-- Workflows are pre-configured as "Deepimage UI" and "Deepimage API"
+- **Backend:** FastAPI (`deepfake-detector/app/main.py`) — serves REST API + built-in HTML UI
+- **Agents:** Spatial Forensics, Frequency Analysis, Temporal Consistency, Biological Signal, Audio-Visual Sync, Fusion (quantum-inspired ensemble)
+- **Self-Improvement:** Logs predictions, recalibrates fusion weights, tracks accuracy drift
+- **Optional Streamlit UI:** `deepfake-detector/ui/streamlit_app.py`
 
-## Stack
+## How to run
 
-- **Language:** Python 3.11
-- **ML:** PyTorch 2.x + timm (EfficientNet-B4) + HuggingFace Transformers (ViT deepfake detector)
-- **CV:** OpenCV, MediaPipe, scipy/numpy
-- **API:** FastAPI + Uvicorn
-- **UI:** Streamlit
-- **Quantum module:** PennyLane (classical simulation, clearly labelled experimental)
-
-## Where Things Live
-
+The primary workflow is **artifacts/api-server: Deepimage**:
 ```
-deepfake-detector/
-├── app/
-│   ├── main.py                    # FastAPI routes (/api/analyse, /api/health, /api/stats, /api/feedback)
-│   ├── schemas.py                 # Pydantic: AgentResult, ForensicVerdict
-│   ├── agents/
-│   │   ├── coordinator.py         # Top-level orchestrator — routes image vs video
-│   │   ├── spatial.py             # ViT / EfficientNet pixel-level artifacts
-│   │   ├── frequency.py           # FFT + DCT spectral fingerprints
-│   │   ├── temporal.py            # Optical flow, blink rate (video)
-│   │   ├── biological.py          # CHROM rPPG heartbeat signal (video)
-│   │   ├── audio_visual.py        # Lip-sync mismatch (video + audio)
-│   │   ├── fusion.py              # Weighted ensemble + quantum-inspired calibration
-│   │   └── self_improvement.py    # Prediction logging, accuracy tracking, recalibration
-│   ├── models/detector.py         # Model loading (HF pipeline + timm fallback)
-│   └── preprocessing/pipeline.py  # Face detection, frame extraction, normalisation
-├── ui/streamlit_app.py            # Full Streamlit frontend
-├── logs/predictions.jsonl         # Self-improvement prediction log
-├── model_card.md                  # Model card (intended use, limitations, risks)
-└── requirements.txt
+cd /home/runner/workspace/deepfake-detector && uv run python start_api.py
+```
+This installs dependencies automatically via `uv` and starts the FastAPI server on `$PORT`.
+
+The Streamlit UI can be started with the **Deepimage UI** workflow:
+```
+cd deepfake-detector && python start_ui.py
 ```
 
-## Architecture Decisions
+## Key files
 
-- **Multi-agent, not monolithic:** Each forensic signal is an independent agent so failures are isolated and weights are interpretable. The Coordinator Agent routes to applicable agents per media type.
-- **HuggingFace primary + timm fallback:** `dima806/deepfake_vs_real_image_detection` (ViT, 325MB) is the primary spatial classifier; EfficientNet-B4 (timm) is a secondary texture-feature signal. Both load at startup.
-- **Quantum-inspired fusion:** PennyLane variational circuit adjusts ensemble weights — runs entirely on CPU simulation. Clearly labelled experimental; no quantum hardware or speedup claimed.
-- **Self-improvement is bounded:** The Self-Improvement Agent logs predictions and recalibrates fusion weights when labelled ground truth is submitted via `/api/feedback`. No unbounded recursive modification.
-- **Frequency analysis covers both GAN and diffusion:** FFT spectral peaks target GAN fingerprints; channel cross-correlation targets diffusion-model artifacts (Corvi et al. 2023).
+| Path | Purpose |
+|------|---------|
+| `deepfake-detector/app/main.py` | FastAPI app + all API endpoints |
+| `deepfake-detector/app/agents/` | Specialist detection agents |
+| `deepfake-detector/app/models/detector.py` | Model loading (ViT/EfficientNet) |
+| `deepfake-detector/app/static/index.html` | Drag-and-drop frontend UI |
+| `deepfake-detector/ui/streamlit_app.py` | Alternative Streamlit frontend |
+| `deepfake-detector/model_card.md` | Model details, limitations, ethics |
+| `deepfake-detector/requirements.txt` | Python dependencies |
 
-## Product
+## Notes
 
-A forensic tool that accepts an image or short video and returns:
-- **Verdict**: LIKELY FAKE / LIKELY REAL / UNCERTAIN
-- **Deepfake probability** (0–1)
-- **Per-agent signal breakdown** with individual scores, confidence, and details
-- **Fusion weights** (quantum-inspired calibration noted)
-- **Structured prose rationale** readable by non-technical users
-- **Downloadable JSON forensic report**
-- **Accuracy dashboard** (once ground-truth feedback is submitted)
-- **Model card** and **technical research report** tabs
+- The HuggingFace ViT model (`dima806/deepfake_vs_real_image_detection`) downloads on first run; if unavailable it falls back to a minimal CNN.
+- The quantum-inspired fusion module uses PennyLane on classical CPU — no quantum hardware, labeled experimental.
+- No external secrets required to run.
 
-## User Preferences
-
-- Build real working systems, not demos — all signals use actual algorithms or pretrained models
-- Honest framing: limitations, generalisation gaps, and the "quantum" module are explicitly labelled
-- No mocked outputs
-
-## Gotchas
-
-- Models download from HuggingFace on first startup (~400MB total). Subsequent starts use the cache.
-- The timm EfficientNet-B4 fallback is NOT fine-tuned on deepfakes — verdicts from it alone are uncalibrated. The UI and rationale warn about this.
-- rPPG and temporal agents require video ≥15 frames; they skip gracefully with a `skipped_reason` if not enough frames.
-- Audio-visual sync requires ffmpeg (installed) and a video with an audio track.
-- Streamlit runs on port 8080; FastAPI on port 8000. The UI calls the API via `http://localhost:8000`.
+## User preferences
